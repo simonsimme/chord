@@ -148,7 +148,7 @@ func (n *Node) stabilize() {
 			log.Printf("stabilize: GetPredecessor call failed: %v", err)
 
 		}
-		if resp.Predecessor == "" {
+		if resp.Address == "" {
 			log.Printf("stabilize: got empty predecessor from ", succ)
 			var resp pb.NotifyResponse
 			err := call(succ, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
@@ -157,14 +157,14 @@ func (n *Node) stabilize() {
 			}
 			break
 		}
-		if resp.Predecessor == n.Address {
+		if resp.Address == n.Address {
 			n.mu.Lock()
 			n.Successors[0] = succ
 			n.mu.Unlock()
 			log.Printf("stabilize: successor is %s", succ)
 			break
 		} else {
-			succ = resp.Predecessor
+			succ = resp.Address
 		}
 	}
 	log.Printf("stab end")
@@ -227,7 +227,7 @@ func call(address string, method string, request interface{}, reply interface{})
 func (n *Node) GetPredecessor(ctx context.Context, req *pb.GetPredecessorRequest) (*pb.GetPredecessorResponse, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	return &pb.GetPredecessorResponse{Predecessor: n.Predecessor}, nil
+	return &pb.GetPredecessorResponse{Address: n.Predecessor}, nil
 }
 
 func (n *Node) fixFingers(nextFinger int) int {
