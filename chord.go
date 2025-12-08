@@ -140,14 +140,15 @@ func (n *Node) stabilize() {
 		return
 	}
 	succ = resolveAddress(succ)
-	for i := 0; i < 5; i++ {
+
+	for true {
 		// ask successor for its predecessor
 		var resp pb.GetPredecessorResponse
 		err := call(succ, "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
 		if err != nil {
 			log.Printf("stabilize: GetPredecessor call failed: %v", err)
-
 		}
+		log.Printf("stabilize: got predecessor %s from %s", resp.Address, succ)
 		if resp.Address == "" {
 			log.Printf("stabilize: got empty predecessor from ", succ)
 			var resp pb.NotifyResponse
