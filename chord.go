@@ -9,6 +9,9 @@ import (
 	"sync"
 
 	pb "chord/protocol" // Update path as needed
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -129,6 +132,102 @@ func (n *Node) checkPredecessor() {
 
 func (n *Node) stabilize() {
 	// TODO: Student will implement this
+	log.Printf("stabilize: checking successor %s", n.Successors[0])
+	n.mu.RLock()
+	succ := n.Successors[0]
+	n.mu.RUnlock()
+	if n.Address == succ {
+		return
+	}
+	succ = resolveAddress(succ)
+	for i := 0; i < 5; i++ {
+		// ask successor for its predecessor
+		var resp pb.GetPredecessorResponse
+		err := call(succ, "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
+		if err != nil {
+			log.Printf("stabilize: GetPredecessor call failed: %v", err)
+
+		}
+		if resp.Predecessor == "" {
+			log.Printf("stabilize: got empty predecessor from ", succ)
+			var resp pb.NotifyResponse
+			err := call(succ, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
+			if err != nil {
+				log.Printf("stabilize: notify call failed: %v", err)
+			}
+			break
+		}
+		if resp.Predecessor == n.Address {
+			n.mu.Lock()
+			n.Successors[0] = succ
+			n.mu.Unlock()
+			log.Printf("stabilize: successor is %s", succ)
+			break
+		} else {
+			succ = resp.Predecessor
+		}
+	}
+	log.Printf("stab end")
+
+}
+func (n *Node) Notify(ctx context.Context, req *pb.NotifyRequest) (*pb.NotifyResponse, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	log.Printf("notify: received notification from %s", req.Address)
+	n.Predecessor = req.Address
+	return &pb.NotifyResponse{}, nil
+}
+
+func call(address string, method string, request interface{}, reply interface{}) error {
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	client := pb.NewChordClient(conn)
+	log.Printf("call: calling %s on %s", method, address)
+	switch method {
+	case "GetPredecessor":
+		req, ok := request.(*pb.GetPredecessorRequest)
+		if !ok {
+			return fmt.Errorf("invalid request type for GetPredecessor")
+		}
+		resp, err := client.GetPredecessor(context.Background(), req)
+		if err != nil {
+			return err
+		}
+		r, ok := reply.(*pb.GetPredecessorResponse)
+		if !ok {
+			return fmt.Errorf("invalid reply type for GetPredecessor")
+		}
+		*r = *resp
+	case "Notify":
+		log.Printf("call: in Notify case")
+		req, ok := request.(*pb.NotifyRequest)
+		if !ok {
+			return fmt.Errorf("invalid request type for Notify")
+		}
+		resp, err := client.Notify(context.Background(), req)
+		if err != nil {
+			return err
+		}
+		r, ok := reply.(*pb.NotifyResponse)
+		if !ok {
+			return fmt.Errorf("invalid reply type for Notify")
+		}
+		*r = *resp
+	default:
+		return fmt.Errorf("unknown method: %s", method)
+	}
+	log.Printf("call: completed %s on %s", method, address)
+	return nil
+}
+
+// GetPredecessor implements the GetPredecessor RPC method
+func (n *Node) GetPredecessor(ctx context.Context, req *pb.GetPredecessorRequest) (*pb.GetPredecessorResponse, error) {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return &pb.GetPredecessorResponse{Predecessor: n.Predecessor}, nil
 }
 
 func (n *Node) fixFingers(nextFinger int) int {
@@ -182,4 +281,3 @@ func (n *Node) dump() {
 	}
 	fmt.Println()
 }
-

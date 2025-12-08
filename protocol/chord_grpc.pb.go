@@ -2,12 +2,13 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v6.33.1
-// source: protocol/chord.proto
+// source: chord.proto
 
 package protocol
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -19,11 +20,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Chord_Ping_FullMethodName   = "/chord.Chord/Ping"
-	Chord_Put_FullMethodName    = "/chord.Chord/Put"
-	Chord_Get_FullMethodName    = "/chord.Chord/Get"
-	Chord_Delete_FullMethodName = "/chord.Chord/Delete"
-	Chord_GetAll_FullMethodName = "/chord.Chord/GetAll"
+	Chord_Ping_FullMethodName           = "/chord.Chord/Ping"
+	Chord_Put_FullMethodName            = "/chord.Chord/Put"
+	Chord_Get_FullMethodName            = "/chord.Chord/Get"
+	Chord_Delete_FullMethodName         = "/chord.Chord/Delete"
+	Chord_GetAll_FullMethodName         = "/chord.Chord/GetAll"
+	chord_GetPredecessor_FullMethodName = "/chord.Chord/GetPredecessor"
+	chord_Notify_FullMethodName         = "/chord.Chord/Notify"
 )
 
 // ChordClient is the client API for Chord service.
@@ -42,6 +45,8 @@ type ChordClient interface {
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	// GetAll retrieves all key-value pairs
 	GetAll(ctx context.Context, in *GetAllRequest, opts ...grpc.CallOption) (*GetAllResponse, error)
+	GetPredecessor(ctx context.Context, in *GetPredecessorRequest, opts ...grpc.CallOption) (*GetPredecessorResponse, error)
+	Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (*NotifyResponse, error)
 }
 
 type chordClient struct {
@@ -101,6 +106,24 @@ func (c *chordClient) GetAll(ctx context.Context, in *GetAllRequest, opts ...grp
 	}
 	return out, nil
 }
+func (c *chordClient) GetPredecessor(ctx context.Context, in *GetPredecessorRequest, opts ...grpc.CallOption) (*GetPredecessorResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPredecessorResponse)
+	err := c.cc.Invoke(ctx, chord_GetPredecessor_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+func (c *chordClient) Notify(ctx context.Context, in *NotifyRequest, opts ...grpc.CallOption) (*NotifyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NotifyResponse)
+	err := c.cc.Invoke(ctx, chord_Notify_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
 // ChordServer is the server API for Chord service.
 // All implementations must embed UnimplementedChordServer
@@ -118,6 +141,8 @@ type ChordServer interface {
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	// GetAll retrieves all key-value pairs
 	GetAll(context.Context, *GetAllRequest) (*GetAllResponse, error)
+	GetPredecessor(context.Context, *GetPredecessorRequest) (*GetPredecessorResponse, error)
+	Notify(context.Context, *NotifyRequest) (*NotifyResponse, error)
 	mustEmbedUnimplementedChordServer()
 }
 
@@ -162,6 +187,41 @@ func RegisterChordServer(s grpc.ServiceRegistrar, srv ChordServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Chord_ServiceDesc, srv)
+}
+func _Chorrd_GetPredecessor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPredecessorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChordServer).GetPredecessor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: chord_GetPredecessor_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChordServer).GetPredecessor(ctx, req.(*GetPredecessorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Chord_Notify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NotifyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChordServer).Notify(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: chord_Notify_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChordServer).Notify(ctx, req.(*NotifyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Chord_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -281,7 +341,15 @@ var Chord_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetAll",
 			Handler:    _Chord_GetAll_Handler,
 		},
+		{
+			MethodName: "GetPredecessor",
+			Handler:    _Chorrd_GetPredecessor_Handler,
+		},
+		{
+			MethodName: "Notify",
+			Handler:    _Chord_Notify_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "protocol/chord.proto",
+	Metadata: "chord.proto",
 }

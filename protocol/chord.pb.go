@@ -2,16 +2,17 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v6.33.1
-// source: protocol/chord.proto
+// source: chord.proto
 
 package protocol
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -30,7 +31,7 @@ type PingRequest struct {
 
 func (x *PingRequest) Reset() {
 	*x = PingRequest{}
-	mi := &file_protocol_chord_proto_msgTypes[0]
+	mi := &file_chord_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42,7 +43,7 @@ func (x *PingRequest) String() string {
 func (*PingRequest) ProtoMessage() {}
 
 func (x *PingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[0]
+	mi := &file_chord_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -55,7 +56,7 @@ func (x *PingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingRequest.ProtoReflect.Descriptor instead.
 func (*PingRequest) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{0}
+	return file_chord_proto_rawDescGZIP(), []int{0}
 }
 
 // The response message for Ping, containing no fields
@@ -67,7 +68,7 @@ type PingResponse struct {
 
 func (x *PingResponse) Reset() {
 	*x = PingResponse{}
-	mi := &file_protocol_chord_proto_msgTypes[1]
+	mi := &file_chord_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -79,7 +80,7 @@ func (x *PingResponse) String() string {
 func (*PingResponse) ProtoMessage() {}
 
 func (x *PingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[1]
+	mi := &file_chord_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -92,7 +93,7 @@ func (x *PingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PingResponse.ProtoReflect.Descriptor instead.
 func (*PingResponse) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{1}
+	return file_chord_proto_rawDescGZIP(), []int{1}
 }
 
 // The request message for Put
@@ -106,7 +107,7 @@ type PutRequest struct {
 
 func (x *PutRequest) Reset() {
 	*x = PutRequest{}
-	mi := &file_protocol_chord_proto_msgTypes[2]
+	mi := &file_chord_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -118,7 +119,7 @@ func (x *PutRequest) String() string {
 func (*PutRequest) ProtoMessage() {}
 
 func (x *PutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[2]
+	mi := &file_chord_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -131,7 +132,7 @@ func (x *PutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutRequest.ProtoReflect.Descriptor instead.
 func (*PutRequest) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{2}
+	return file_chord_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PutRequest) GetKey() string {
@@ -148,6 +149,17 @@ func (x *PutRequest) GetValue() string {
 	return ""
 }
 
+type GetPredecessorRequest struct {
+}
+type GetPredecessorResponse struct {
+	Predecessor string
+}
+type NotifyRequest struct {
+	Address string
+}
+type NotifyResponse struct {
+}
+
 // The response message for Put
 type PutResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -157,7 +169,7 @@ type PutResponse struct {
 
 func (x *PutResponse) Reset() {
 	*x = PutResponse{}
-	mi := &file_protocol_chord_proto_msgTypes[3]
+	mi := &file_chord_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -169,7 +181,7 @@ func (x *PutResponse) String() string {
 func (*PutResponse) ProtoMessage() {}
 
 func (x *PutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[3]
+	mi := &file_chord_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -182,7 +194,7 @@ func (x *PutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutResponse.ProtoReflect.Descriptor instead.
 func (*PutResponse) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{3}
+	return file_chord_proto_rawDescGZIP(), []int{3}
 }
 
 // The request message for Get
@@ -195,7 +207,7 @@ type GetRequest struct {
 
 func (x *GetRequest) Reset() {
 	*x = GetRequest{}
-	mi := &file_protocol_chord_proto_msgTypes[4]
+	mi := &file_chord_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -207,7 +219,7 @@ func (x *GetRequest) String() string {
 func (*GetRequest) ProtoMessage() {}
 
 func (x *GetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[4]
+	mi := &file_chord_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -220,7 +232,7 @@ func (x *GetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRequest.ProtoReflect.Descriptor instead.
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{4}
+	return file_chord_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetRequest) GetKey() string {
@@ -240,7 +252,7 @@ type GetResponse struct {
 
 func (x *GetResponse) Reset() {
 	*x = GetResponse{}
-	mi := &file_protocol_chord_proto_msgTypes[5]
+	mi := &file_chord_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -252,7 +264,7 @@ func (x *GetResponse) String() string {
 func (*GetResponse) ProtoMessage() {}
 
 func (x *GetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[5]
+	mi := &file_chord_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -265,7 +277,7 @@ func (x *GetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetResponse.ProtoReflect.Descriptor instead.
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{5}
+	return file_chord_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetResponse) GetValue() string {
@@ -285,7 +297,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_protocol_chord_proto_msgTypes[6]
+	mi := &file_chord_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -297,7 +309,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[6]
+	mi := &file_chord_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -310,7 +322,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{6}
+	return file_chord_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteRequest) GetKey() string {
@@ -329,7 +341,7 @@ type DeleteResponse struct {
 
 func (x *DeleteResponse) Reset() {
 	*x = DeleteResponse{}
-	mi := &file_protocol_chord_proto_msgTypes[7]
+	mi := &file_chord_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -341,7 +353,7 @@ func (x *DeleteResponse) String() string {
 func (*DeleteResponse) ProtoMessage() {}
 
 func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[7]
+	mi := &file_chord_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -354,7 +366,7 @@ func (x *DeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteResponse) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{7}
+	return file_chord_proto_rawDescGZIP(), []int{7}
 }
 
 // The request message for GetAll
@@ -366,7 +378,7 @@ type GetAllRequest struct {
 
 func (x *GetAllRequest) Reset() {
 	*x = GetAllRequest{}
-	mi := &file_protocol_chord_proto_msgTypes[8]
+	mi := &file_chord_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -378,7 +390,7 @@ func (x *GetAllRequest) String() string {
 func (*GetAllRequest) ProtoMessage() {}
 
 func (x *GetAllRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[8]
+	mi := &file_chord_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -391,7 +403,7 @@ func (x *GetAllRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAllRequest.ProtoReflect.Descriptor instead.
 func (*GetAllRequest) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{8}
+	return file_chord_proto_rawDescGZIP(), []int{8}
 }
 
 // The response message for GetAll
@@ -404,7 +416,7 @@ type GetAllResponse struct {
 
 func (x *GetAllResponse) Reset() {
 	*x = GetAllResponse{}
-	mi := &file_protocol_chord_proto_msgTypes[9]
+	mi := &file_chord_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -416,7 +428,7 @@ func (x *GetAllResponse) String() string {
 func (*GetAllResponse) ProtoMessage() {}
 
 func (x *GetAllResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_protocol_chord_proto_msgTypes[9]
+	mi := &file_chord_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -429,7 +441,7 @@ func (x *GetAllResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAllResponse.ProtoReflect.Descriptor instead.
 func (*GetAllResponse) Descriptor() ([]byte, []int) {
-	return file_protocol_chord_proto_rawDescGZIP(), []int{9}
+	return file_chord_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetAllResponse) GetKeyValues() map[string]string {
@@ -439,11 +451,11 @@ func (x *GetAllResponse) GetKeyValues() map[string]string {
 	return nil
 }
 
-var File_protocol_chord_proto protoreflect.FileDescriptor
+var File_chord_proto protoreflect.FileDescriptor
 
-const file_protocol_chord_proto_rawDesc = "" +
+const file_chord_proto_rawDesc = "" +
 	"\n" +
-	"\x14protocol/chord.proto\x12\x05chord\"\r\n" +
+	"\vchord.proto\x12\x05chord\"\r\n" +
 	"\vPingRequest\"\x0e\n" +
 	"\fPingResponse\"4\n" +
 	"\n" +
@@ -474,19 +486,19 @@ const file_protocol_chord_proto_rawDesc = "" +
 	"\x06GetAll\x12\x14.chord.GetAllRequest\x1a\x15.chord.GetAllResponse\"\x00B\x10Z\x0echord/protocolb\x06proto3"
 
 var (
-	file_protocol_chord_proto_rawDescOnce sync.Once
-	file_protocol_chord_proto_rawDescData []byte
+	file_chord_proto_rawDescOnce sync.Once
+	file_chord_proto_rawDescData []byte
 )
 
-func file_protocol_chord_proto_rawDescGZIP() []byte {
-	file_protocol_chord_proto_rawDescOnce.Do(func() {
-		file_protocol_chord_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_protocol_chord_proto_rawDesc), len(file_protocol_chord_proto_rawDesc)))
+func file_chord_proto_rawDescGZIP() []byte {
+	file_chord_proto_rawDescOnce.Do(func() {
+		file_chord_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_chord_proto_rawDesc), len(file_chord_proto_rawDesc)))
 	})
-	return file_protocol_chord_proto_rawDescData
+	return file_chord_proto_rawDescData
 }
 
-var file_protocol_chord_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
-var file_protocol_chord_proto_goTypes = []any{
+var file_chord_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_chord_proto_goTypes = []any{
 	(*PingRequest)(nil),    // 0: chord.PingRequest
 	(*PingResponse)(nil),   // 1: chord.PingResponse
 	(*PutRequest)(nil),     // 2: chord.PutRequest
@@ -499,7 +511,7 @@ var file_protocol_chord_proto_goTypes = []any{
 	(*GetAllResponse)(nil), // 9: chord.GetAllResponse
 	nil,                    // 10: chord.GetAllResponse.KeyValuesEntry
 }
-var file_protocol_chord_proto_depIdxs = []int32{
+var file_chord_proto_depIdxs = []int32{
 	10, // 0: chord.GetAllResponse.key_values:type_name -> chord.GetAllResponse.KeyValuesEntry
 	0,  // 1: chord.Chord.Ping:input_type -> chord.PingRequest
 	2,  // 2: chord.Chord.Put:input_type -> chord.PutRequest
@@ -518,26 +530,26 @@ var file_protocol_chord_proto_depIdxs = []int32{
 	0,  // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_protocol_chord_proto_init() }
-func file_protocol_chord_proto_init() {
-	if File_protocol_chord_proto != nil {
+func init() { file_chord_proto_init() }
+func file_chord_proto_init() {
+	if File_chord_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_protocol_chord_proto_rawDesc), len(file_protocol_chord_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chord_proto_rawDesc), len(file_chord_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_protocol_chord_proto_goTypes,
-		DependencyIndexes: file_protocol_chord_proto_depIdxs,
-		MessageInfos:      file_protocol_chord_proto_msgTypes,
+		GoTypes:           file_chord_proto_goTypes,
+		DependencyIndexes: file_chord_proto_depIdxs,
+		MessageInfos:      file_chord_proto_msgTypes,
 	}.Build()
-	File_protocol_chord_proto = out.File
-	file_protocol_chord_proto_goTypes = nil
-	file_protocol_chord_proto_depIdxs = nil
+	File_chord_proto = out.File
+	file_chord_proto_goTypes = nil
+	file_chord_proto_depIdxs = nil
 }

@@ -50,7 +50,7 @@ func resolveAddress(address string) string {
 }
 
 // StartServer starts the gRPC server for this node
-func StartServer(address string, nprime string) (*Node, error) {
+func StartServer(address string, nprime string, ts int, tff int, tcp int) (*Node, error) {
 	address = resolveAddress(address)
 
 	node := &Node{
@@ -71,6 +71,7 @@ func StartServer(address string, nprime string) (*Node, error) {
 		nprime = resolveAddress(nprime)
 		node.Successors = []string{nprime}
 		// TODO: use a GetAll request to populate our bucket
+
 	}
 
 	// Start listening for RPC calls
@@ -92,15 +93,33 @@ func StartServer(address string, nprime string) (*Node, error) {
 
 	// Start background tasks
 	go func() {
+		wait := time.Second / 3
+		if ts == 0 {
+			wait = time.Duration(ts) * time.Millisecond
+		}
+		for {
+			time.Sleep(wait)
+			node.stabilize()
+		}
+	}()
+	go func() {
+		wait := time.Second / 3
+		if ts == 0 {
+			wait = time.Duration(tff) * time.Millisecond
+		}
 		nextFinger := 0
 		for {
-			time.Sleep(time.Second / 3)
-			node.stabilize()
-
-			time.Sleep(time.Second / 3)
+			time.Sleep(wait)
 			nextFinger = node.fixFingers(nextFinger)
-
-			time.Sleep(time.Second / 3)
+		}
+	}()
+	go func() {
+		wait := time.Second / 3
+		if ts == 0 {
+			wait = time.Duration(tcp) * time.Millisecond
+		}
+		for {
+			time.Sleep(wait)
 			node.checkPredecessor()
 		}
 	}()
@@ -359,7 +378,7 @@ func main() {
 	}
 	if ja == "" && jp == 0 {
 		//Create
-		node, err := StartServer(address+":"+port, "")
+		node, err := StartServer(address+":"+port, "", ts, tff, tcpT)
 		if err != nil {
 			log.Fatalf("Failed to create ring: %v", err)
 		}
@@ -370,7 +389,7 @@ func main() {
 			log.Fatal("--jp must be specified when --ja is used")
 		}
 		//Join
-		node, err := StartServer(address+":"+port, ja+":"+strconv.Itoa(jp))
+		node, err := StartServer(address+":"+port, ja+":"+strconv.Itoa(jp), ts, tff, tcpT)
 		if err != nil {
 			log.Fatalf("Failed to join ring: %v", err)
 		}
