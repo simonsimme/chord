@@ -469,6 +469,7 @@ func (*GetPredecessorRequest) Descriptor() ([]byte, []int) {
 type GetPredecessorResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Successors    []string               `protobuf:"bytes,2,rep,name=successors,proto3" json:"successors,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -508,6 +509,13 @@ func (x *GetPredecessorResponse) GetAddress() string {
 		return x.Address
 	}
 	return ""
+}
+
+func (x *GetPredecessorResponse) GetSuccessors() []string {
+	if x != nil {
+		return x.Successors
+	}
+	return nil
 }
 
 type NotifyRequest struct {
@@ -617,9 +625,12 @@ const file_protocol_chord_proto_rawDesc = "" +
 	"\x0eKeyValuesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x17\n" +
-	"\x15GetPredecessorRequest\"2\n" +
+	"\x15GetPredecessorRequest\"R\n" +
 	"\x16GetPredecessorResponse\x12\x18\n" +
-	"\aaddress\x18\x01 \x01(\tR\aaddress\")\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x1e\n" +
+	"\n" +
+	"successors\x18\x02 \x03(\tR\n" +
+	"successors\")\n" +
 	"\rNotifyRequest\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\tR\aaddress\"\x10\n" +
 	"\x0eNotifyResponse2\x88\x03\n" +

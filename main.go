@@ -71,6 +71,7 @@ func StartServer(address string, nprime string, ts int, tff int, tcp int) (*Node
 		nprime = resolveAddress(nprime)
 		node.Successors = []string{nprime}
 		// TODO: use a GetAll request to populate our bucket
+		node.join()
 
 	}
 
@@ -384,9 +385,10 @@ func main() {
 	if address == "" || port == "" {
 		log.Fatal("address and port must be specified with -a and -p")
 	}
+	var err error
 	if ja == "" && jp == 0 {
 		//Create
-		node, err := StartServer(address+":"+port, "", ts, tff, tcpT)
+		node, err = StartServer(address+":"+port, "", ts, tff, tcpT)
 		if err != nil {
 			log.Fatalf("Failed to create ring: %v", err)
 		}
@@ -397,7 +399,7 @@ func main() {
 			log.Fatal("--jp must be specified when --ja is used")
 		}
 		//Join
-		node, err := StartServer(address+":"+port, ja+":"+strconv.Itoa(jp), ts, tff, tcpT)
+		node, err = StartServer(address+":"+port, ja+":"+strconv.Itoa(jp), ts, tff, tcpT)
 		if err != nil {
 			log.Fatalf("Failed to join ring: %v", err)
 		}

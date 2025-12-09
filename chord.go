@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
-	"log"
 	"math/big"
 	"sync"
 
@@ -16,7 +15,7 @@ import (
 
 const (
 	defaultPort       = "3410"
-	successorListSize = 3
+	successorListSize = 20
 	keySize           = sha1.Size * 8
 	maxLookupSteps    = 32
 )
@@ -72,7 +71,7 @@ func between(start, elt, end *big.Int, inclusive bool) bool {
 
 // Ping implements the Ping RPC method
 func (n *Node) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
-	log.Print("ping: received request")
+	//log.Print("ping: received request")
 	return &pb.PingResponse{}, nil
 }
 
@@ -80,7 +79,7 @@ func (n *Node) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse,
 func (n *Node) Put(ctx context.Context, req *pb.PutRequest) (*pb.PutResponse, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	log.Print("put: [", req.Key, "] => [", req.Value, "]")
+	//log.Print("put: [", req.Key, "] => [", req.Value, "]")
 	n.Bucket[req.Key] = req.Value
 	return &pb.PutResponse{}, nil
 }
@@ -91,10 +90,10 @@ func (n *Node) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, er
 	defer n.mu.RUnlock()
 	value, exists := n.Bucket[req.Key]
 	if !exists {
-		log.Print("get: [", req.Key, "] miss")
+		//log.Print("get: [", req.Key, "] miss")
 		return &pb.GetResponse{Value: ""}, nil
 	}
-	log.Print("get: [", req.Key, "] found [", value, "]")
+	//log.Print("get: [", req.Key, "] found [", value, "]")
 	return &pb.GetResponse{Value: value}, nil
 }
 
@@ -103,10 +102,10 @@ func (n *Node) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteRes
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	if _, exists := n.Bucket[req.Key]; exists {
-		log.Print("delete: found and deleted [", req.Key, "]")
+		//log.Print("delete: found and deleted [", req.Key, "]")
 		delete(n.Bucket, req.Key)
 	} else {
-		log.Print("delete: not found [", req.Key, "]")
+		//log.Print("delete: not found [", req.Key, "]")
 	}
 	return &pb.DeleteResponse{}, nil
 }
@@ -115,7 +114,7 @@ func (n *Node) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteRes
 func (n *Node) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	log.Printf("getall: returning %d key-value pairs", len(n.Bucket))
+	//log.Printf("getall: returning %d key-value pairs", len(n.Bucket))
 
 	// Create a copy of the bucket map
 	keyValues := make(map[string]string)
@@ -129,24 +128,39 @@ func (n *Node) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllRes
 func (n *Node) checkPredecessor() {
 	// TODO: Student will implement this
 }
+func (n *Node) join() {
+	err := call(n.Successors[0], "Notify", &pb.NotifyRequest{Address: n.Address}, &pb.NotifyResponse{})
+	if err != nil {
+		//log.Printf("join: notify call failed: %v", err)
+	} else {
+		//log.Printf("join: notified successor %s", n.Successors[0])
+	}
+}
 
 func (n *Node) stabilize() {
 	// TODO: Student will implement this
-	//log.Printf("stabilize: checking successor %s", n.Successors[0])
+	////log.Printf("stabilize: checking successor %s", n.Successors[0])
 	n.mu.RLock()
 	succ := n.Successors[0]
 	n.mu.RUnlock()
+	//n.dump()
+
 	if n.Address == succ {
 		if n.Predecessor != "" {
 			var resp pb.NotifyResponse
-			err := call(succ, "Notify", &pb.NotifyRequest{Address: n.Predecessor}, &resp)
+			err := call(n.Predecessor, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
 			if err != nil {
-				log.Printf("stabilize: notify call failed: %v", err)
+				//log.Printf("stabilize: predecessor %s is dead, clearing it", n.Predecessor)
+				n.mu.Lock()
+				n.Predecessor = ""
+				n.mu.Unlock()
+				return
 			}
 			n.mu.Lock()
 			n.Successors[0] = n.Predecessor
+			n.Successors = append(n.Successors, succ)
 			n.mu.Unlock()
-			log.Printf("stabilize: self succ now got another succ %s", n.Predecessor)
+			//log.Printf("stabilize: self succ now got another succ %s", n.Predecessor)
 
 		}
 		return
@@ -156,38 +170,83 @@ func (n *Node) stabilize() {
 	for true {
 		// ask successor for its predecessor
 		var resp pb.GetPredecessorResponse
-		err := call(succ, "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
-		if err != nil {
-			log.Printf("stabilize: GetPredecessor call failed: %v", err)
+		for i := 0; i < len(n.Successors); i++ {
+			if succ == n.Address {
+				return
+			}
+			err := call(succ, "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
+			if err != nil {
+				//log.Printf("stabilize: GetPredecessor call failed: %v", err)
+				n.mu.Lock()
+				if len(n.Successors) == 0 {
+					n.mu.Unlock()
+					return
+				}
+				n.Successors = n.Successors[1:]
+
+				if i == len(n.Successors) {
+					n.mu.Unlock()
+					//log.Printf("Found no alive successors")
+					return
+				}
+				succ = n.Successors[0]
+
+				n.mu.Unlock()
+
+			} else {
+				break
+			}
+
 		}
-		log.Printf("stabilize: got predecessor %s from %s", resp.Address, succ)
+		//log.Printf("stabilize: complete successor list [%d entries]: %v", len(n.Successors), n.Successors)
+
+		//log.Printf("stabilize: got predecessor %s from %s", resp.Address, succ)
 		if resp.Address == "" {
-			log.Printf("stabilize: got empty predecessor from ", succ)
+			//log.Printf("stabilize: got empty predecessor from ", succ)
+			if succ == n.Address {
+				break
+			}
 			var resp pb.NotifyResponse
 			err := call(succ, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
 			if err != nil {
-				log.Printf("stabilize: notify call failed: %v", err)
+				//log.Printf("stabilize: notify call failed: %v", err)
 			}
+
 			break
 		}
 		if resp.Address == n.Address {
 			n.mu.Lock()
-			n.Successors[0] = succ
+			//n.Successors[0] = succ
+			n.Successors = append([]string{succ}, resp.Successors...)
+			for i, addr := range n.Successors {
+				if addr == n.Address {
+					n.Successors = n.Successors[:i+1]
+					break
+				}
+			}
+			if len(n.Successors) > successorListSize {
+				n.Successors = n.Successors[:successorListSize]
+			}
 			n.mu.Unlock()
-			log.Printf("stabilize: successor is %s", succ)
+			//log.Printf("stabilize: successor is %s", succ)
 			break
 		} else {
 			succ = resp.Address
+			//log.Printf("stabilize: trying with new successor %s", succ)
 		}
 	}
-	//log.Printf("stab end")
+	////log.Printf("stab end")
 
 }
 func (n *Node) Notify(ctx context.Context, req *pb.NotifyRequest) (*pb.NotifyResponse, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	log.Printf("notify: received notification from %s", req.Address)
-	n.Predecessor = req.Address
+
+	//log.Printf("notify: received notification from %s", req.Address)
+	if n.Predecessor != req.Address && req.Address != "" {
+		n.Predecessor = req.Address
+	}
+
 	return &pb.NotifyResponse{}, nil
 }
 
@@ -198,7 +257,7 @@ func call(address string, method string, request interface{}, reply interface{})
 	}
 	defer conn.Close()
 	client := pb.NewChordClient(conn)
-	log.Printf("call: calling %s on %s", method, address)
+	//log.Printf("call: calling %s on %s", method, address)
 	switch method {
 	case "GetPredecessor":
 		req, ok := request.(*pb.GetPredecessorRequest)
@@ -215,7 +274,7 @@ func call(address string, method string, request interface{}, reply interface{})
 		}
 		*r = *resp
 	case "Notify":
-		log.Printf("call: in Notify case")
+		//log.Printf("call: in Notify case")
 		req, ok := request.(*pb.NotifyRequest)
 		if !ok {
 			return fmt.Errorf("invalid request type for Notify")
@@ -232,7 +291,7 @@ func call(address string, method string, request interface{}, reply interface{})
 	default:
 		return fmt.Errorf("unknown method: %s", method)
 	}
-	log.Printf("call: completed %s on %s", method, address)
+	//log.Printf("call: completed %s on %s", method, address)
 	return nil
 }
 
@@ -240,7 +299,7 @@ func call(address string, method string, request interface{}, reply interface{})
 func (n *Node) GetPredecessor(ctx context.Context, req *pb.GetPredecessorRequest) (*pb.GetPredecessorResponse, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	return &pb.GetPredecessorResponse{Address: n.Predecessor}, nil
+	return &pb.GetPredecessorResponse{Address: n.Predecessor, Successors: n.Successors}, nil
 }
 
 func (n *Node) fixFingers(nextFinger int) int {
