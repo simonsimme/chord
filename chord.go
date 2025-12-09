@@ -132,11 +132,23 @@ func (n *Node) checkPredecessor() {
 
 func (n *Node) stabilize() {
 	// TODO: Student will implement this
-	log.Printf("stabilize: checking successor %s", n.Successors[0])
+	//log.Printf("stabilize: checking successor %s", n.Successors[0])
 	n.mu.RLock()
 	succ := n.Successors[0]
 	n.mu.RUnlock()
 	if n.Address == succ {
+		if n.Predecessor != "" {
+			var resp pb.NotifyResponse
+			err := call(succ, "Notify", &pb.NotifyRequest{Address: n.Predecessor}, &resp)
+			if err != nil {
+				log.Printf("stabilize: notify call failed: %v", err)
+			}
+			n.mu.Lock()
+			n.Successors[0] = n.Predecessor
+			n.mu.Unlock()
+			log.Printf("stabilize: self succ now got another succ %s", n.Predecessor)
+
+		}
 		return
 	}
 	succ = resolveAddress(succ)
@@ -168,7 +180,7 @@ func (n *Node) stabilize() {
 			succ = resp.Address
 		}
 	}
-	log.Printf("stab end")
+	//log.Printf("stab end")
 
 }
 func (n *Node) Notify(ctx context.Context, req *pb.NotifyRequest) (*pb.NotifyResponse, error) {

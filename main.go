@@ -281,7 +281,11 @@ func main() {
 			if i+1 >= len(os.Args) {
 				log.Fatal("missing value for -a")
 			}
-			address = os.Args[i+1]
+			if os.Args[i+1] == "local" {
+				address = localaddress
+			} else {
+				address = os.Args[i+1]
+			}
 			i++
 		case "-p":
 			if i+1 >= len(os.Args) {
@@ -293,7 +297,11 @@ func main() {
 			if i+1 >= len(os.Args) {
 				log.Fatal("missing value for --ja")
 			}
-			ja = os.Args[i+1]
+			if os.Args[i+1] == "local" {
+				ja = localaddress
+			} else {
+				ja = os.Args[i+1]
+			}
 			i++
 		case "--jp":
 			if i+1 >= len(os.Args) {
