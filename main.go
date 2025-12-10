@@ -58,20 +58,20 @@ func StartServer(address string, nprime string, ts int, tff int, tcp int) (*Node
 		FingerTable: make([]string, keySize+1),
 		Predecessor: "",
 		Successors:  nil,
-		Bucket:      make(map[string]string),
+		Bucket:      make(map[string][]byte),
 	}
 
 	// Are we the first node?
 	if nprime == "" {
 		log.Print("StartServer: creating new ring")
-		node.Successors = []string{node.Address}
+		node.create()
 	} else {
 		log.Print("StartServer: joining existing ring using ", nprime)
 		// For now use the given address as our successor
 		nprime = resolveAddress(nprime)
-		node.Successors = []string{nprime}
+		//node.Successors = []string{}
 		// TODO: use a GetAll request to populate our bucket
-		node.join()
+		node.join(nprime)
 
 	}
 
@@ -104,6 +104,7 @@ func StartServer(address string, nprime string, ts int, tff int, tcp int) (*Node
 		}
 	}()
 	go func() {
+		time.Sleep(time.Second * 2)
 		wait := time.Second / 3
 		if ts == 0 {
 			wait = time.Duration(tff) * time.Millisecond
@@ -158,12 +159,40 @@ func RunShell(node *Node) {
 			fmt.Println("  help              - Show this help message")
 			fmt.Println("  ping <address>    - Ping another node")
 			fmt.Println("                      (You can use :port for localhost)")
-			fmt.Println("  put <key> <value> <address> - Store a key-value pair on a node")
+			fmt.Println("  Lookup <filename>               - Lookup the node responsible for a key")
+			fmt.Println("  StoreFile <local path/filename> - Store a file in the DHT")
 			fmt.Println("  get <key> <address>         - Get a value for a key from a node")
 			fmt.Println("  delete <key> <address>      - Delete a key from a node")
 			fmt.Println("  getall <address>            - Get all key-value pairs from a node")
 			fmt.Println("  dump              - Display info about the current node")
 			fmt.Println("  quit              - Exit the program")
+		case "Lookup":
+			if len(parts) < 2 {
+				fmt.Println("Usage: Lookup <key>")
+				continue
+			}
+			nodeid, adress, file, err := node.Lookup(parts[1])
+			if err != nil {
+				fmt.Printf("Lookup failed: %v\n", err)
+			} else {
+				if file != nil {
+					fmt.Printf("Key '%s' (ID: %s) is located at node %s (ID: %s)\n", parts[1], nodeid.String(), adress, nodeid.String())
+					fmt.Printf("Associated file: %s\n", file)
+				} else {
+					fmt.Printf("file is nill")
+				}
+			}
+		case "StoreFile":
+			if len(parts) < 2 {
+				fmt.Println("Usage: StoreFile <local path/filename>")
+				continue
+			}
+			err := node.StoreFile(parts[1])
+			if err != nil {
+				fmt.Printf("StoreFile failed: %v\n", err)
+			} else {
+				fmt.Printf("File '%s' stored successfully in the DHT\n", parts[1])
+			}
 
 		case "ping":
 			if len(parts) < 2 {
@@ -178,19 +207,6 @@ func RunShell(node *Node) {
 				fmt.Println("Ping successful")
 			}
 
-		case "put":
-			if len(parts) < 4 {
-				fmt.Println("Usage: put <key> <value> <address>")
-				continue
-			}
-
-			err := PutKeyValue(ctx, parts[1], parts[2], parts[3])
-			if err != nil {
-				fmt.Printf("Put failed: %v\n", err)
-			} else {
-				fmt.Printf("Put successful: %s -> %s\n", parts[1], parts[2])
-			}
-
 		case "get":
 			if len(parts) < 3 {
 				fmt.Println("Usage: get <key> <address>")
@@ -200,7 +216,7 @@ func RunShell(node *Node) {
 			value, err := GetValue(ctx, parts[1], parts[2])
 			if err != nil {
 				fmt.Printf("Get failed: %v\n", err)
-			} else if value == "" {
+			} else if value == nil {
 				fmt.Printf("Key '%s' not found\n", parts[1])
 			} else {
 				fmt.Printf("%s -> %s\n", parts[1], value)
@@ -241,7 +257,8 @@ func RunShell(node *Node) {
 
 		case "dump":
 			node.dump()
-
+		case "PrintState":
+			node.dump()
 		case "quit":
 			fmt.Println("Exiting...")
 			return

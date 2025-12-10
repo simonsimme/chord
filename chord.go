@@ -4,7 +4,10 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+	"log"
 	"math/big"
+	"os"
+	"path"
 	"sync"
 
 	pb "chord/protocol" // Update path as needed
@@ -35,7 +38,7 @@ type Node struct {
 	Successors  []string
 	FingerTable []string
 
-	Bucket map[string]string
+	Bucket map[string][]byte
 }
 
 // get the sha1 hash of a string as a bigint
@@ -91,7 +94,7 @@ func (n *Node) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, er
 	value, exists := n.Bucket[req.Key]
 	if !exists {
 		//log.Print("get: [", req.Key, "] miss")
-		return &pb.GetResponse{Value: ""}, nil
+		return &pb.GetResponse{Value: nil}, nil
 	}
 	//log.Print("get: [", req.Key, "] found [", value, "]")
 	return &pb.GetResponse{Value: value}, nil
@@ -117,28 +120,103 @@ func (n *Node) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllRes
 	//log.Printf("getall: returning %d key-value pairs", len(n.Bucket))
 
 	// Create a copy of the bucket map
-	keyValues := make(map[string]string)
+	keyValues := make(map[string][]byte)
 	for k, v := range n.Bucket {
 		keyValues[k] = v
 	}
 
 	return &pb.GetAllResponse{KeyValues: keyValues}, nil
 }
+func (n *Node) StoreFile(filepath string) error {
+	fileData, err := os.ReadFile(filepath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %v", err)
+	}
+	filename := path.Base(filepath)
+
+	//fileID := hash(filename)
+
+	_, targetAddress, _, err := n.Lookup(filename)
+	if err != nil {
+		return fmt.Errorf("failed to lookup node for file ID: %v", err)
+	}
+	err = call(targetAddress, "Put", &pb.PutRequest{
+		Key:   filename,
+		Value: fileData,
+	}, &pb.PutResponse{})
+	if err != nil {
+		return fmt.Errorf("failed to store file on target node: %v", err)
+	}
+	//log.Printf("StoreFile: stored file %s on node %s", filename, targetAddress)
+	return nil
+
+}
 
 func (n *Node) checkPredecessor() {
-	// TODO: Student will implement this
-}
-func (n *Node) join() {
-	err := call(n.Successors[0], "Notify", &pb.NotifyRequest{Address: n.Address}, &pb.NotifyResponse{})
+	err := call(n.Predecessor, "Ping", &pb.PingRequest{}, &pb.PingResponse{})
 	if err != nil {
-		//log.Printf("join: notify call failed: %v", err)
-	} else {
-		//log.Printf("join: notified successor %s", n.Successors[0])
+		//log.Printf("checkPredecessor: predecessor %s is dead, clearing it", n.Predecessor)
+		n.mu.Lock()
+		n.Predecessor = ""
+		n.mu.Unlock()
 	}
 }
+func (n *Node) create() {
+	n.mu.Lock()
+	n.Predecessor = ""
+	n.Successors = []string{n.Address}
+	n.mu.Unlock()
+	//log.Printf("create: created new Chord network at %s", n.Address)
+}
 
+func (n *Node) join(nprime string) {
+	var resp pb.FindSuccessorRespons
+	err := call(nprime, "FindSuccessor", &pb.FindSuccessorRequest{Id: hash(n.Address).Bytes()}, &resp)
+	if err != nil {
+		log.Printf("join: FindSuccessor call failed: %v", err)
+		return
+	}
+	n.mu.Lock()
+	n.Successors = []string{resp.Adress}
+	n.mu.Unlock()
+	errr := call(resp.Adress, "Notify", &pb.NotifyRequest{Address: n.Address}, &pb.NotifyResponse{})
+	if errr != nil {
+		log.Printf("join: Notify call failed: %v", errr)
+		return
+	}
+	log.Printf("join: joined the network via %s, my successor is %s", n.Successors[0], resp.Adress)
+}
+func (n *Node) FindSuccessor(ctx context.Context, req *pb.FindSuccessorRequest) (*pb.FindSuccessorRespons, error) {
+	targetId := new(big.Int).SetBytes(req.Id)
+
+	n.mu.RLock()
+	if len(n.Successors) == 0 || n.Successors[0] == "" {
+		n.mu.RUnlock()
+		return &pb.FindSuccessorRespons{Adress: n.Address}, nil
+	}
+	myHash := hash(n.Address)
+	succHash := hash(n.Successors[0])
+	succ := n.Successors[0]
+	n.mu.RUnlock()
+
+	// If target is between me and my successor, return my successor
+	if between(myHash, targetId, succHash, true) {
+		return &pb.FindSuccessorRespons{Adress: succ}, nil
+	}
+
+	// Otherwise, forward to closest preceding node
+	// (For now, just forward to successor - can optimize with finger table later)
+
+	var resp pb.FindSuccessorRespons
+	err := call(succ, "FindSuccessor", req, &resp)
+	if err != nil {
+		//log.Printf("FindSuccessor: call to %s failed: %v", succ, err)
+		return nil, err
+	}
+
+	return &resp, nil
+}
 func (n *Node) stabilize() {
-	// TODO: Student will implement this
 	////log.Printf("stabilize: checking successor %s", n.Successors[0])
 	n.mu.RLock()
 	succ := n.Successors[0]
@@ -147,6 +225,7 @@ func (n *Node) stabilize() {
 
 	if n.Address == succ {
 		if n.Predecessor != "" {
+
 			var resp pb.NotifyResponse
 			err := call(n.Predecessor, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
 			if err != nil {
@@ -198,12 +277,13 @@ func (n *Node) stabilize() {
 			}
 
 		}
+
 		//log.Printf("stabilize: complete successor list [%d entries]: %v", len(n.Successors), n.Successors)
 
 		//log.Printf("stabilize: got predecessor %s from %s", resp.Address, succ)
 		if resp.Address == "" {
 			//log.Printf("stabilize: got empty predecessor from ", succ)
-			if succ == n.Address {
+			if succ == n.Address || resp.Pred == n.Address {
 				break
 			}
 			var resp pb.NotifyResponse
@@ -250,6 +330,40 @@ func (n *Node) Notify(ctx context.Context, req *pb.NotifyRequest) (*pb.NotifyRes
 	return &pb.NotifyResponse{}, nil
 }
 
+// returns ip of the file
+func (n *Node) Lookup(filename string) (*big.Int, string, []byte, error) { //node’s identifier, IP address, port, and the contents of the file.
+	key := hash(filename)
+	n.mu.RLock()
+	closestNode := n.Address
+	for i := keySize; i >= 1; i-- {
+		if n.FingerTable[i] != "" {
+			fingerHash := hash(n.FingerTable[i])
+			myHash := hash(n.Address)
+
+			// If this finger is between me and the key, use it
+			if between(myHash, fingerHash, key, false) {
+				closestNode = n.FingerTable[i]
+				break
+			}
+		}
+	}
+	n.mu.RUnlock()
+	var resp pb.FindSuccessorRespons
+	err := call(closestNode, "FindSuccessor", &pb.FindSuccessorRequest{Id: key.Bytes()}, &resp)
+	if err != nil {
+		log.Printf("Lookup: FindSuccessor call failed: %v", err)
+		return nil, "", nil, err
+	}
+	var getresp pb.GetResponse
+	err2 := call(resp.Adress, "Get", &pb.GetRequest{Key: filename}, &getresp)
+	if err2 != nil {
+		log.Printf("Lookup: Get call failed: %v", err2)
+		return nil, "", nil, err2
+	}
+
+	return key, resp.Adress, []byte(getresp.Value), nil
+}
+
 func call(address string, method string, request interface{}, reply interface{}) error {
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -288,6 +402,62 @@ func call(address string, method string, request interface{}, reply interface{})
 			return fmt.Errorf("invalid reply type for Notify")
 		}
 		*r = *resp
+	case "Ping":
+		req, ok := request.(*pb.PingRequest)
+		if !ok {
+			return fmt.Errorf("invalid request type for Ping")
+		}
+		resp, err := client.Ping(context.Background(), req)
+		if err != nil {
+			return err
+		}
+		r, ok := reply.(*pb.PingResponse)
+		if !ok {
+			return fmt.Errorf("invalid reply type for Ping")
+		}
+		*r = *resp
+	case "FindSuccessor":
+		req, ok := request.(*pb.FindSuccessorRequest)
+		if !ok {
+			return fmt.Errorf("invalid request type for FindSuccessor")
+		}
+		resp, err := client.FindSuccessor(context.Background(), req)
+		if err != nil {
+			return err
+		}
+		r, ok := reply.(*pb.FindSuccessorRespons)
+		if !ok {
+			return fmt.Errorf("invalid reply type for FindSuccessor")
+		}
+		*r = *resp
+	case "Get":
+		req, ok := request.(*pb.GetRequest)
+		if !ok {
+			return fmt.Errorf("invalid request type for Get")
+		}
+		resp, err := client.Get(context.Background(), req)
+		if err != nil {
+			return err
+		}
+		r, ok := reply.(*pb.GetResponse)
+		if !ok {
+			return fmt.Errorf("invalid reply type for Get")
+		}
+		*r = *resp
+	case "Put":
+		req, ok := request.(*pb.PutRequest)
+		if !ok {
+			return fmt.Errorf("invalid request type for Put")
+		}
+		resp, err := client.Put(context.Background(), req)
+		if err != nil {
+			return err
+		}
+		r, ok := reply.(*pb.PutResponse)
+		if !ok {
+			return fmt.Errorf("invalid reply type for Put")
+		}
+		*r = *resp
 	default:
 		return fmt.Errorf("unknown method: %s", method)
 	}
@@ -299,15 +469,35 @@ func call(address string, method string, request interface{}, reply interface{})
 func (n *Node) GetPredecessor(ctx context.Context, req *pb.GetPredecessorRequest) (*pb.GetPredecessorResponse, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	return &pb.GetPredecessorResponse{Address: n.Predecessor, Successors: n.Successors}, nil
+	return &pb.GetPredecessorResponse{Address: n.Predecessor, Successors: n.Successors, Pred: n.Predecessor}, nil
 }
 
 func (n *Node) fixFingers(nextFinger int) int {
-	// TODO: Student will implement this
-	nextFinger++
-	if nextFinger > keySize {
-		nextFinger = 1
+	nextFinger = (nextFinger % keySize) + 1
+	n.mu.RLock()
+	hasSuccessor := len(n.Successors) > 0 && n.Successors[0] != ""
+	n.mu.RUnlock()
+
+	if !hasSuccessor {
+		return nextFinger - 1
 	}
+	// Calculate the target position for this finger
+	target := jump(n.Address, nextFinger)
+
+	// Find the successor of that position using your own FindSuccessor
+
+	var resp pb.FindSuccessorRespons
+	err := call(n.Address, "FindSuccessor", &pb.FindSuccessorRequest{Id: target.Bytes()}, &resp)
+	if err != nil {
+		log.Printf("fixFingers: FindSuccessor failed for finger %d: %v", nextFinger, err)
+		return nextFinger - 1
+	}
+
+	// Update the finger table entry
+	n.mu.Lock()
+	n.FingerTable[nextFinger] = resp.Adress
+	n.mu.Unlock()
+
 	return nextFinger
 }
 

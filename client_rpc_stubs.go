@@ -29,7 +29,7 @@ func PingNode(ctx context.Context, address string) error {
 }
 
 // PutKeyValue sets a key-value pair on a node
-func PutKeyValue(ctx context.Context, key, value, address string) error {
+func PutKeyValue(ctx context.Context, key string, value []byte, address string) error {
 	address = resolveAddress(address)
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -50,11 +50,11 @@ func PutKeyValue(ctx context.Context, key, value, address string) error {
 }
 
 // GetValue retrieves a value for a key from a node
-func GetValue(ctx context.Context, key, address string) (string, error) {
+func GetValue(ctx context.Context, key, address string) ([]byte, error) {
 	address = resolveAddress(address)
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return "", fmt.Errorf("failed to connect: %v", err)
+		return nil, fmt.Errorf("failed to connect: %v", err)
 	}
 	defer conn.Close()
 
@@ -63,7 +63,7 @@ func GetValue(ctx context.Context, key, address string) (string, error) {
 		Key: key,
 	})
 	if err != nil {
-		return "", fmt.Errorf("get failed: %v", err)
+		return nil, fmt.Errorf("get failed: %v", err)
 	}
 
 	return resp.Value, nil
@@ -90,7 +90,7 @@ func DeleteKey(ctx context.Context, key, address string) error {
 }
 
 // GetAllKeyValues retrieves all key-value pairs from a node
-func GetAllKeyValues(ctx context.Context, address string) (map[string]string, error) {
+func GetAllKeyValues(ctx context.Context, address string) (map[string][]byte, error) {
 	address = resolveAddress(address)
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

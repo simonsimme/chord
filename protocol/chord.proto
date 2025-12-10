@@ -22,6 +22,8 @@ service Chord {
   rpc GetAll(GetAllRequest) returns (GetAllResponse);
   
   rpc GetPredecessor(GetPredecessorRequest) returns (GetPredecessorResponse);
+
+  rpc FindSuccessor(FindSuccessorRequest) returns (FindSuccessorRespons);
   
   rpc Notify(NotifyRequest) returns (NotifyResponse);
 }
@@ -32,7 +34,7 @@ message PingResponse {}
 
 message PutRequest {
   string key = 1;
-  string value = 2;
+  bytes value = 2;
 }
 message PutResponse {}
 
@@ -40,7 +42,7 @@ message GetRequest {
   string key = 1;
 }
 message GetResponse {
-  string value = 1;
+  bytes value = 1;
 }
 
 message DeleteRequest {
@@ -50,12 +52,13 @@ message DeleteResponse {}
 
 message GetAllRequest {}
 message GetAllResponse {
-  map<string, string> key_values = 1;
+  map<string, bytes> key_values = 1;  // <-- Change from string to bytes
 }
 
 message GetPredecessorRequest {}
 message GetPredecessorResponse {
   string address = 1;
+  string pred = 3;
   repeated string successors = 2;
 }
 
@@ -63,3 +66,9 @@ message NotifyRequest {
   string address = 1;
 }
 message NotifyResponse {}
+message FindSuccessorRequest{
+  bytes id = 1;
+}
+message FindSuccessorRespons{
+  string adress = 1;
+}
