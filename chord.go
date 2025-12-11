@@ -13,14 +13,14 @@ import (
 	pb "chord/protocol" // Update path as needed
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
-	defaultPort       = "3410"
-	successorListSize = 20
-	keySize           = sha1.Size * 8
-	maxLookupSteps    = 32
+	defaultPort = "3410"
+	//successorListSize = 20
+	keySize        = sha1.Size * 8
+	maxLookupSteps = 32
 )
 
 var (
@@ -39,6 +39,8 @@ type Node struct {
 	FingerTable []string
 
 	Bucket map[string][]byte
+
+	SuccessorListSize int
 }
 
 // get the sha1 hash of a string as a bigint
@@ -175,13 +177,25 @@ func (n *Node) create() {
 	//log.Printf("create: created new Chord network at %s", n.Address)
 }
 
-func (n *Node) join(nprime string) {
+func (n *Node) join(nprime string, id string) {
 	var resp pb.FindSuccessorRespons
-	err := call(nprime, "FindSuccessor", &pb.FindSuccessorRequest{Id: hash(n.Address).Bytes()}, &resp)
-	if err != nil {
-		log.Printf("join: FindSuccessor call failed: %v", err)
-		return
+
+	if id != "" {
+		d := new(big.Int)
+		d.SetString(id, 16)
+		err := call(nprime, "FindSuccessor", &pb.FindSuccessorRequest{Id: d.Bytes()}, &resp)
+		if err != nil {
+			log.Printf("join: FindSuccessor call failed: %v", err)
+			return
+		}
+	} else {
+		err := call(nprime, "FindSuccessor", &pb.FindSuccessorRequest{Id: hash(n.Address).Bytes()}, &resp)
+		if err != nil {
+			log.Printf("join: FindSuccessor call failed: %v", err)
+			return
+		}
 	}
+
 	n.mu.Lock()
 	n.Successors = []string{resp.Adress}
 	n.mu.Unlock()
@@ -311,8 +325,8 @@ func (n *Node) stabilize() {
 					break
 				}
 			}
-			if len(n.Successors) > successorListSize {
-				n.Successors = n.Successors[:successorListSize]
+			if len(n.Successors) > n.SuccessorListSize {
+				n.Successors = n.Successors[:n.SuccessorListSize]
 			}
 			n.mu.Unlock()
 			//log.Printf("stabilize: successor is %s", succ)
@@ -373,7 +387,11 @@ func (n *Node) Lookup(filename string) (*big.Int, string, []byte, error) { //nod
 }
 
 func call(address string, method string, request interface{}, reply interface{}) error {
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	if err != nil {
+		return fmt.Errorf("failed to load TLS credentials: %v", err)
+	}
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return err
 	}
@@ -483,7 +501,7 @@ func (n *Node) GetPredecessor(ctx context.Context, req *pb.GetPredecessorRequest
 func (n *Node) fixFingers(nextFinger int) int {
 	nextFinger = (nextFinger % keySize) + 1
 	n.mu.RLock()
-	hasSuccessor := len(n.Successors) > 0 && n.Successors[0] != ""
+	hasSuccessor := len(n.Successors) > 0 && (n.Successors[0] != "" && n.Address != n.Successors[0])
 	n.mu.RUnlock()
 
 	if !hasSuccessor {

@@ -7,13 +7,17 @@ import (
 	pb "chord/protocol" // Update path as needed
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 // PingNode sends a ping to another node
 func PingNode(ctx context.Context, address string) error {
+	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	if err != nil {
+		return fmt.Errorf("failed to load TLS credentials: %v", err)
+	}
 	address = resolveAddress(address)
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return fmt.Errorf("failed to connect: %v", err)
 	}
@@ -30,8 +34,12 @@ func PingNode(ctx context.Context, address string) error {
 
 // PutKeyValue sets a key-value pair on a node
 func PutKeyValue(ctx context.Context, key string, value []byte, address string) error {
+	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	if err != nil {
+		return fmt.Errorf("failed to load TLS credentials: %v", err)
+	}
 	address = resolveAddress(address)
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return fmt.Errorf("failed to connect: %v", err)
 	}
@@ -51,8 +59,12 @@ func PutKeyValue(ctx context.Context, key string, value []byte, address string) 
 
 // GetValue retrieves a value for a key from a node
 func GetValue(ctx context.Context, key, address string) ([]byte, error) {
+	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS credentials: %v", err)
+	}
 	address = resolveAddress(address)
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %v", err)
 	}
@@ -71,8 +83,12 @@ func GetValue(ctx context.Context, key, address string) ([]byte, error) {
 
 // DeleteKey deletes a key from a node
 func DeleteKey(ctx context.Context, key, address string) error {
+	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	if err != nil {
+		return fmt.Errorf("failed to load TLS credentials: %v", err)
+	}
 	address = resolveAddress(address)
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return fmt.Errorf("failed to connect: %v", err)
 	}
@@ -91,8 +107,12 @@ func DeleteKey(ctx context.Context, key, address string) error {
 
 // GetAllKeyValues retrieves all key-value pairs from a node
 func GetAllKeyValues(ctx context.Context, address string) (map[string][]byte, error) {
+	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS credentials: %v", err)
+	}
 	address = resolveAddress(address)
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %v", err)
 	}

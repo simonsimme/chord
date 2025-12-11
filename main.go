@@ -15,6 +15,7 @@ import (
 	pb "chord/protocol" // Update path as needed
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var localaddress string
@@ -49,16 +50,19 @@ func resolveAddress(address string) string {
 	return address
 }
 
+//at the moment -i only matters when joining, not implemented for the lookups etc.
+
 // StartServer starts the gRPC server for this node
-func StartServer(address string, nprime string, ts int, tff int, tcp int) (*Node, error) {
+func StartServer(address string, nprime string, ts int, tff int, tcp int, r int, id string) (*Node, error) {
 	address = resolveAddress(address)
 
 	node := &Node{
-		Address:     address,
-		FingerTable: make([]string, keySize+1),
-		Predecessor: "",
-		Successors:  nil,
-		Bucket:      make(map[string][]byte),
+		Address:           address,
+		FingerTable:       make([]string, keySize+1),
+		Predecessor:       "",
+		Successors:        nil,
+		Bucket:            make(map[string][]byte),
+		SuccessorListSize: r,
 	}
 
 	// Are we the first node?
@@ -71,12 +75,20 @@ func StartServer(address string, nprime string, ts int, tff int, tcp int) (*Node
 		nprime = resolveAddress(nprime)
 		//node.Successors = []string{}
 		// TODO: use a GetAll request to populate our bucket
-		node.join(nprime)
+		node.join(nprime, id)
+	}
 
+	// Load TLS credentials
+	creds, err := credentials.NewServerTLSFromFile(
+		"certs/server-cert.pem",
+		"certs/server-key.pem",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS credentials: %v", err)
 	}
 
 	// Start listening for RPC calls
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.Creds(creds))
 	pb.RegisterChordServer(grpcServer, node)
 
 	lis, err := net.Listen("tcp", node.Address)
@@ -293,6 +305,7 @@ func main() {
 	var r int
 	var jp int
 	var identifier string
+	r = 20 //default successor list size
 	for i := 1; i < len(os.Args); i++ {
 		switch os.Args[i] {
 		case "-a":
@@ -405,7 +418,7 @@ func main() {
 	var err error
 	if ja == "" && jp == 0 {
 		//Create
-		node, err = StartServer(address+":"+port, "", ts, tff, tcpT)
+		node, err = StartServer(address+":"+port, "", ts, tff, tcpT, r, identifier)
 		if err != nil {
 			log.Fatalf("Failed to create ring: %v", err)
 		}
@@ -416,7 +429,7 @@ func main() {
 			log.Fatal("--jp must be specified when --ja is used")
 		}
 		//Join
-		node, err = StartServer(address+":"+port, ja+":"+strconv.Itoa(jp), ts, tff, tcpT)
+		node, err = StartServer(address+":"+port, ja+":"+strconv.Itoa(jp), ts, tff, tcpT, r, identifier)
 		if err != nil {
 			log.Fatalf("Failed to join ring: %v", err)
 		}
