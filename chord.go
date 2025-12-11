@@ -153,9 +153,15 @@ func (n *Node) StoreFile(filepath string) error {
 }
 
 func (n *Node) checkPredecessor() {
-	err := call(n.Predecessor, "Ping", &pb.PingRequest{}, &pb.PingResponse{})
+	n.mu.RLock()
+	pred := n.Predecessor
+	n.mu.RUnlock()
+	if pred == "" {
+		return
+	}
+	err := call(pred, "Ping", &pb.PingRequest{}, &pb.PingResponse{})
 	if err != nil {
-		//log.Printf("checkPredecessor: predecessor %s is dead, clearing it", n.Predecessor)
+		log.Printf("error ping: %s", err)
 		n.mu.Lock()
 		n.Predecessor = ""
 		n.mu.Unlock()
@@ -220,16 +226,17 @@ func (n *Node) stabilize() {
 	////log.Printf("stabilize: checking successor %s", n.Successors[0])
 	n.mu.RLock()
 	succ := n.Successors[0]
+	pred := n.Predecessor
 	n.mu.RUnlock()
 	//n.dump()
 
 	if n.Address == succ {
-		if n.Predecessor != "" {
+		if pred != "" {
 
 			var resp pb.NotifyResponse
-			err := call(n.Predecessor, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
+			err := call(pred, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
 			if err != nil {
-				//log.Printf("stabilize: predecessor %s is dead, clearing it", n.Predecessor)
+				log.Printf("stabilize: predecessor %s is dead, clearing it", n.Predecessor)
 				n.mu.Lock()
 				n.Predecessor = ""
 				n.mu.Unlock()
@@ -244,7 +251,7 @@ func (n *Node) stabilize() {
 		}
 		return
 	}
-	succ = resolveAddress(succ)
+	//succ = resolveAddress(succ)
 
 	for true {
 		// ask successor for its predecessor
@@ -324,6 +331,7 @@ func (n *Node) Notify(ctx context.Context, req *pb.NotifyRequest) (*pb.NotifyRes
 
 	//log.Printf("notify: received notification from %s", req.Address)
 	if n.Predecessor != req.Address && req.Address != "" {
+		log.Printf("notify: updating predecessor from %s to %s", n.Predecessor, req.Address)
 		n.Predecessor = req.Address
 	}
 

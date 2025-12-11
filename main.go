@@ -179,7 +179,7 @@ func RunShell(node *Node) {
 					fmt.Printf("Key '%s' (ID: %s) is located at node %s (ID: %s)\n", parts[1], nodeid.String(), adress, nodeid.String())
 					fmt.Printf("Associated file: %s\n", file)
 				} else {
-					fmt.Printf("file is nill")
+					fmt.Printf("file not found")
 				}
 			}
 		case "StoreFile":
