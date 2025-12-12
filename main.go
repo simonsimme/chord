@@ -173,9 +173,6 @@ func RunShell(node *Node) {
 			fmt.Println("                      (You can use :port for localhost)")
 			fmt.Println("  Lookup <filename> <password>              - Lookup the node responsible for a key")
 			fmt.Println("  StoreFile <local path/filename> <password> - Store a file in the DHT")
-			fmt.Println("  get <key> <address>         - Get a value for a key from a node")
-			fmt.Println("  delete <key> <address>      - Delete a key from a node")
-			fmt.Println("  getall <address>            - Get all key-value pairs from a node")
 			fmt.Println("  dump              - Display info about the current node")
 			fmt.Println("  quit              - Exit the program")
 		case "Lookup":
@@ -226,54 +223,6 @@ func RunShell(node *Node) {
 				fmt.Printf("Ping failed: %v\n", err)
 			} else {
 				fmt.Println("Ping successful")
-			}
-
-		case "get":
-			if len(parts) < 3 {
-				fmt.Println("Usage: get <key> <address>")
-				continue
-			}
-
-			value, err := GetValue(ctx, parts[1], parts[2])
-			if err != nil {
-				fmt.Printf("Get failed: %v\n", err)
-			} else if value == nil {
-				fmt.Printf("Key '%s' not found\n", parts[1])
-			} else {
-				fmt.Printf("%s -> %s\n", parts[1], value)
-			}
-
-		case "delete":
-			if len(parts) < 3 {
-				fmt.Println("Usage: delete <key> <address>")
-				continue
-			}
-
-			err := DeleteKey(ctx, parts[1], parts[2])
-			if err != nil {
-				fmt.Printf("Delete failed: %v\n", err)
-			} else {
-				fmt.Printf("Delete request for key '%s' completed\n", parts[1])
-			}
-
-		case "getall":
-			if len(parts) < 2 {
-				fmt.Println("Usage: getall <address>")
-				continue
-			}
-
-			keyValues, err := GetAllKeyValues(ctx, parts[1])
-			if err != nil {
-				fmt.Printf("GetAll failed: %v\n", err)
-			} else {
-				if len(keyValues) == 0 {
-					fmt.Println("No key-value pairs found")
-				} else {
-					fmt.Println("Key-value pairs:")
-					for k, v := range keyValues {
-						fmt.Printf("  %s -> %s\n", k, v)
-					}
-				}
 			}
 
 		case "dump":

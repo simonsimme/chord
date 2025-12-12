@@ -24,8 +24,7 @@ import (
 const (
 	defaultPort = "3410"
 	//successorListSize = 20
-	keySize        = sha1.Size * 8
-	maxLookupSteps = 32
+	keySize = sha1.Size * 8
 )
 
 var (
@@ -105,34 +104,6 @@ func (n *Node) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, er
 	}
 	//log.Print("get: [", req.Key, "] found [", value, "]")
 	return &pb.GetResponse{Value: value}, nil
-}
-
-// Delete implements the Delete RPC method
-func (n *Node) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	if _, exists := n.Bucket[req.Key]; exists {
-		//log.Print("delete: found and deleted [", req.Key, "]")
-		delete(n.Bucket, req.Key)
-	} else {
-		//log.Print("delete: not found [", req.Key, "]")
-	}
-	return &pb.DeleteResponse{}, nil
-}
-
-// GetAll implements the GetAll RPC method
-func (n *Node) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllResponse, error) {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	//log.Printf("getall: returning %d key-value pairs", len(n.Bucket))
-
-	// Create a copy of the bucket map
-	keyValues := make(map[string][]byte)
-	for k, v := range n.Bucket {
-		keyValues[k] = v
-	}
-
-	return &pb.GetAllResponse{KeyValues: keyValues}, nil
 }
 
 func encrypt(data []byte, password string) ([]byte, error) {
