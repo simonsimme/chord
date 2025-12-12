@@ -282,13 +282,7 @@ func RunShell(node *Node) {
 }
 
 func main() {
-	// Parse command line flags
-	//createCmd := flag.NewFlagSet("create", flag.ExitOnError)
-	//createPort := createCmd.Int("port", 3410, "Port to listen on")
-
-	//joinCmd := flag.NewFlagSet("join", flag.ExitOnError)
-	//joinPort := joinCmd.Int("port", 3410, "Port to listen on")
-	//joinAddr := joinCmd.String("addr", "", "Address of existing node")
+	// -r store in all successor list
 
 	if len(os.Args) < 2 {
 		fmt.Println("Expected at least -a and -p arguments")

@@ -137,7 +137,7 @@ func (n *Node) StoreFile(filepath string) error {
 	filename := path.Base(filepath)
 
 	//fileID := hash(filename)
-
+	//out file on key responsible
 	_, targetAddress, _, err := n.Lookup(filename)
 	if err != nil {
 		return fmt.Errorf("failed to lookup node for file ID: %v", err)
@@ -148,6 +148,24 @@ func (n *Node) StoreFile(filepath string) error {
 	}, &pb.PutResponse{})
 	if err != nil {
 		return fmt.Errorf("failed to store file on target node: %v", err)
+	}
+	//but on all its sucessors to, it -r is 3, put on 3 successors
+	var resp pb.GetPredecessorResponse
+	err2 := call(targetAddress, "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
+	if err2 != nil {
+		return fmt.Errorf("failed to get predecessor of target node: %v", err2)
+	}
+	for _, succ := range resp.Successors {
+		if succ == "" || succ == targetAddress {
+			continue
+		}
+		err = call(succ, "Put", &pb.PutRequest{
+			Key:   filename,
+			Value: fileData,
+		}, &pb.PutResponse{})
+		if err != nil {
+			log.Printf("warning: failed to store file on successor %s: %v", succ, err)
+		}
 	}
 	//log.Printf("StoreFile: stored file %s on node %s", filename, targetAddress)
 	return nil
@@ -505,7 +523,6 @@ func (n *Node) fixFingers(nextFinger int) int {
 	n.mu.RUnlock()
 
 	if !hasSuccessor {
-		return nextFinger - 1
 	}
 	// Calculate the target position for this finger
 	target := jump(n.Address, nextFinger)
