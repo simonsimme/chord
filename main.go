@@ -171,19 +171,28 @@ func RunShell(node *Node) {
 			fmt.Println("  help              - Show this help message")
 			fmt.Println("  ping <address>    - Ping another node")
 			fmt.Println("                      (You can use :port for localhost)")
-			fmt.Println("  Lookup <filename>               - Lookup the node responsible for a key")
-			fmt.Println("  StoreFile <local path/filename> - Store a file in the DHT")
+			fmt.Println("  Lookup <filename> <password>              - Lookup the node responsible for a key")
+			fmt.Println("  StoreFile <local path/filename> <password> - Store a file in the DHT")
 			fmt.Println("  get <key> <address>         - Get a value for a key from a node")
 			fmt.Println("  delete <key> <address>      - Delete a key from a node")
 			fmt.Println("  getall <address>            - Get all key-value pairs from a node")
 			fmt.Println("  dump              - Display info about the current node")
 			fmt.Println("  quit              - Exit the program")
 		case "Lookup":
-			if len(parts) < 2 {
-				fmt.Println("Usage: Lookup <key>")
+			if len(parts) < 3 {
+				fmt.Println("Usage: Lookup <key> <password>")
 				continue
 			}
-			nodeid, adress, file, err := node.Lookup(parts[1])
+			_, _, f, err2 := node.Lookup(parts[1])
+			if err2 != nil {
+				fmt.Printf("Lookup failed: %v\n", err2)
+				continue
+			}
+			if f == nil {
+				fmt.Printf("file not found\n")
+				continue
+			}
+			nodeid, adress, file, err := node.LookupFile(parts[1], parts[2])
 			if err != nil {
 				fmt.Printf("Lookup failed: %v\n", err)
 			} else {
@@ -195,11 +204,11 @@ func RunShell(node *Node) {
 				}
 			}
 		case "StoreFile":
-			if len(parts) < 2 {
-				fmt.Println("Usage: StoreFile <local path/filename>")
+			if len(parts) < 3 {
+				fmt.Println("Usage: StoreFile <local path/filename> <password>")
 				continue
 			}
-			err := node.StoreFile(parts[1])
+			err := node.StoreFile(parts[1], parts[2])
 			if err != nil {
 				fmt.Printf("StoreFile failed: %v\n", err)
 			} else {

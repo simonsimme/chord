@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"os"
@@ -129,11 +134,78 @@ func (n *Node) GetAll(ctx context.Context, req *pb.GetAllRequest) (*pb.GetAllRes
 
 	return &pb.GetAllResponse{KeyValues: keyValues}, nil
 }
-func (n *Node) StoreFile(filepath string) error {
+
+func encrypt(data []byte, password string) ([]byte, error) {
+	// Derive a key from the password using SHA-256
+	key := sha256.Sum256([]byte(password))
+
+	// Create AES cipher block
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %v", err)
+	}
+
+	// Create GCM mode
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %v", err)
+	}
+
+	// Generate a random nonce
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, fmt.Errorf("failed to generate nonce: %v", err)
+	}
+
+	// Encrypt the data (nonce is prepended to the ciphertext)
+	ciphertext := gcm.Seal(nonce, nonce, data, nil)
+
+	return ciphertext, nil
+}
+
+func decrypt(data []byte, password string) ([]byte, error) {
+	// Derive the same key from the password
+	key := sha256.Sum256([]byte(password))
+
+	// Create AES cipher block
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cipher: %v", err)
+	}
+
+	// Create GCM mode
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %v", err)
+	}
+
+	// Check if data is long enough to contain nonce
+	nonceSize := gcm.NonceSize()
+	if len(data) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
+	// Extract nonce and ciphertext
+	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
+
+	// Decrypt the data
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt: %v", err)
+	}
+
+	return plaintext, nil
+}
+func (n *Node) StoreFile(filepath string, password string) error {
 	fileData, err := os.ReadFile(filepath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %v", err)
 	}
+	encryptedData, err := encrypt(fileData, password)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt file: %v", err)
+	}
+	fileData = encryptedData
 	filename := path.Base(filepath)
 
 	//fileID := hash(filename)
@@ -155,7 +227,10 @@ func (n *Node) StoreFile(filepath string) error {
 	if err2 != nil {
 		return fmt.Errorf("failed to get predecessor of target node: %v", err2)
 	}
-	for _, succ := range resp.Successors {
+	n.mu.RLock()
+	resucc := resp.Successors
+	n.mu.RUnlock()
+	for _, succ := range resucc {
 		if succ == "" || succ == targetAddress {
 			continue
 		}
@@ -166,6 +241,7 @@ func (n *Node) StoreFile(filepath string) error {
 		if err != nil {
 			log.Printf("warning: failed to store file on successor %s: %v", succ, err)
 		}
+		//log.Printf("StoreFile: stored file %s on successor node %s", filename, succ)
 	}
 	//log.Printf("StoreFile: stored file %s on node %s", filename, targetAddress)
 	return nil
@@ -401,7 +477,45 @@ func (n *Node) Lookup(filename string) (*big.Int, string, []byte, error) { //nod
 		return nil, "", nil, err2
 	}
 
-	return key, resp.Adress, []byte(getresp.Value), nil
+	return key, resp.Adress, nil, nil
+}
+func (n *Node) LookupFile(filename string, password string) (*big.Int, string, []byte, error) { //node’s identifier, IP address, port, and the contents of the file.
+	key := hash(filename)
+	n.mu.RLock()
+	closestNode := n.Address
+	for i := keySize; i >= 1; i-- {
+		if n.FingerTable[i] != "" {
+			fingerHash := hash(n.FingerTable[i])
+			myHash := hash(n.Address)
+
+			// If this finger is between me and the key, use it
+			if between(myHash, fingerHash, key, false) {
+				closestNode = n.FingerTable[i]
+				break
+			}
+		}
+	}
+	n.mu.RUnlock()
+	var resp pb.FindSuccessorRespons
+	err := call(closestNode, "FindSuccessor", &pb.FindSuccessorRequest{Id: key.Bytes()}, &resp)
+	if err != nil {
+		log.Printf("Lookup: FindSuccessor call failed: %v", err)
+		return nil, "", nil, err
+	}
+	var getresp pb.GetResponse
+	err2 := call(resp.Adress, "Get", &pb.GetRequest{Key: filename}, &getresp)
+	if err2 != nil {
+		log.Printf("Lookup: Get call failed: %v", err2)
+		return nil, "", nil, err2
+	}
+	decryptedData, err := decrypt(getresp.Value, password)
+	if err != nil {
+		log.Printf("LookupFile: Decrypt call failed: %v", err)
+		return nil, "", nil, err
+	}
+
+	return key, resp.Adress, decryptedData, nil
+
 }
 
 func call(address string, method string, request interface{}, reply interface{}) error {
@@ -518,12 +632,7 @@ func (n *Node) GetPredecessor(ctx context.Context, req *pb.GetPredecessorRequest
 
 func (n *Node) fixFingers(nextFinger int) int {
 	nextFinger = (nextFinger % keySize) + 1
-	n.mu.RLock()
-	hasSuccessor := len(n.Successors) > 0 && (n.Successors[0] != "" && n.Address != n.Successors[0])
-	n.mu.RUnlock()
 
-	if !hasSuccessor {
-	}
 	// Calculate the target position for this finger
 	target := jump(n.Address, nextFinger)
 
