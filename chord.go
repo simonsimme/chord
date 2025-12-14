@@ -279,7 +279,12 @@ func (n *Node) FindSuccessor(ctx context.Context, req *pb.FindSuccessorRequest) 
 		n.mu.RUnlock()
 		return &pb.FindSuccessorRespons{Adress: n.Address}, nil
 	}
-	myHash := hash(n.Address)
+	var myHash *big.Int
+	if n.Identifier != nil {
+		myHash = n.Identifier
+	} else {
+		myHash = hash(n.Address)
+	}
 	succHash := hash(n.Successors[0])
 	succ := n.Successors[0]
 	n.mu.RUnlock()
@@ -425,7 +430,12 @@ func (n *Node) Lookup(filename string) (*big.Int, string, []byte, error) { //nod
 	for i := keySize; i >= 1; i-- {
 		if n.FingerTable[i] != "" {
 			fingerHash := hash(n.FingerTable[i])
-			myHash := hash(n.Address)
+			var myHash *big.Int
+			if n.Identifier != nil {
+				myHash = n.Identifier
+			} else {
+				myHash = hash(n.Address)
+			}
 
 			// If this finger is between me and the key, use it
 			if between(myHash, fingerHash, key, false) {
@@ -457,7 +467,12 @@ func (n *Node) LookupFile(filename string, password string) (*big.Int, string, [
 	for i := keySize; i >= 1; i-- {
 		if n.FingerTable[i] != "" {
 			fingerHash := hash(n.FingerTable[i])
-			myHash := hash(n.Address)
+			var myHash *big.Int
+			if n.Identifier != nil {
+				myHash = n.Identifier
+			} else {
+				myHash = hash(n.Address)
+			}
 
 			// If this finger is between me and the key, use it
 			if between(myHash, fingerHash, key, false) {
@@ -602,7 +617,7 @@ func (n *Node) GetPredecessor(ctx context.Context, req *pb.GetPredecessorRequest
 	if n.Identifier != nil {
 		id = n.Identifier.Bytes()
 	}
-	return &pb.GetPredecessorResponse{Address: n.Predecessor, Successors: n.Successors, Pred: n.Predecessor, Identifier: id}, nil
+	return &pb.GetPredecessorResponse{Address: n.Predecessor, Successors: n.Successors, Identifier: id}, nil
 }
 
 func (n *Node) fixFingers(nextFinger int) int {
@@ -720,9 +735,10 @@ func (n *Node) dump() {
 		for i < keySize && n.FingerTable[i] == n.FingerTable[i+1] {
 			i++
 		}
-		if n.FingerTable[i] != "" {
+		if n.FingerTable[i] != "" && n.FingerTable[i] != n.Address {
 			err := call(n.FingerTable[i], "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
 			if err != nil {
+				fmt.Printf(" [%3d]: %s\n", i, addr(n.FingerTable[i]))
 				i++
 				continue
 			}
@@ -737,6 +753,7 @@ func (n *Node) dump() {
 		i++
 	}
 	fmt.Println()
+
 	if n.Identifier != nil {
 		fmt.Printf("identifier: %040x\n", n.Identifier)
 		fmt.Println()
