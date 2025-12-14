@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"net"
 	"os"
 	"strconv"
@@ -63,7 +64,16 @@ func StartServer(address string, nprime string, ts int, tff int, tcp int, r int,
 		Successors:        nil,
 		Bucket:            make(map[string][]byte),
 		SuccessorListSize: r,
+		Identifier:        nil,
 	}
+	var iden *big.Int
+	if id != "" {
+		iden = new(big.Int)
+		iden.SetString(id, 16) // Assumes identifier is hexadecimal
+		// Or use base 10 if it's decimal:
+		// id.SetString(identifier, 10)
+	}
+	node.Identifier = iden
 
 	// Are we the first node?
 	if nprime == "" {
@@ -75,7 +85,7 @@ func StartServer(address string, nprime string, ts int, tff int, tcp int, r int,
 		nprime = resolveAddress(nprime)
 		//node.Successors = []string{}
 		// TODO: use a GetAll request to populate our bucket
-		node.join(nprime, id)
+		node.join(nprime)
 	}
 
 	// Load TLS credentials

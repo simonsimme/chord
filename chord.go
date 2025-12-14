@@ -40,7 +40,9 @@ type Node struct {
 	Address     string
 	Predecessor string
 	Successors  []string
+
 	FingerTable []string
+	Identifier  *big.Int
 
 	Bucket map[string][]byte
 
@@ -242,13 +244,11 @@ func (n *Node) create() {
 	//log.Printf("create: created new Chord network at %s", n.Address)
 }
 
-func (n *Node) join(nprime string, id string) {
+func (n *Node) join(nprime string) {
 	var resp pb.FindSuccessorRespons
 
-	if id != "" {
-		d := new(big.Int)
-		d.SetString(id, 16)
-		err := call(nprime, "FindSuccessor", &pb.FindSuccessorRequest{Id: d.Bytes()}, &resp)
+	if n.Identifier != nil {
+		err := call(nprime, "FindSuccessor", &pb.FindSuccessorRequest{Id: n.Identifier.Bytes()}, &resp)
 		if err != nil {
 			log.Printf("join: FindSuccessor call failed: %v", err)
 			return
@@ -447,8 +447,8 @@ func (n *Node) Lookup(filename string) (*big.Int, string, []byte, error) { //nod
 		log.Printf("Lookup: Get call failed: %v", err2)
 		return nil, "", nil, err2
 	}
-
-	return key, resp.Adress, nil, nil
+	file := getresp.Value
+	return key, resp.Adress, file, nil
 }
 func (n *Node) LookupFile(filename string, password string) (*big.Int, string, []byte, error) { //node’s identifier, IP address, port, and the contents of the file.
 	key := hash(filename)
@@ -598,14 +598,30 @@ func call(address string, method string, request interface{}, reply interface{})
 func (n *Node) GetPredecessor(ctx context.Context, req *pb.GetPredecessorRequest) (*pb.GetPredecessorResponse, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
-	return &pb.GetPredecessorResponse{Address: n.Predecessor, Successors: n.Successors, Pred: n.Predecessor}, nil
+	var id []byte
+	if n.Identifier != nil {
+		id = n.Identifier.Bytes()
+	}
+	return &pb.GetPredecessorResponse{Address: n.Predecessor, Successors: n.Successors, Pred: n.Predecessor, Identifier: id}, nil
 }
 
 func (n *Node) fixFingers(nextFinger int) int {
 	nextFinger = (nextFinger % keySize) + 1
 
 	// Calculate the target position for this finger
-	target := jump(n.Address, nextFinger)
+	var target *big.Int
+	n.mu.RLock()
+	if n.Identifier != nil {
+		// Use the node's identifier
+		fingerentryminus1 := big.NewInt(int64(nextFinger) - 1)
+		distance := new(big.Int).Exp(two, fingerentryminus1, nil)
+		target = new(big.Int).Add(n.Identifier, distance)
+		target = new(big.Int).Mod(target, hashMod)
+	} else {
+		// Fall back to hashing the address
+		target = jump(n.Address, nextFinger)
+	}
+	n.mu.RUnlock()
 
 	// Find the successor of that position using your own FindSuccessor
 
@@ -622,6 +638,13 @@ func (n *Node) fixFingers(nextFinger int) int {
 	n.mu.Unlock()
 
 	return nextFinger
+}
+func addrwithid(a string, id *big.Int) string {
+	if a == "" {
+		return "(empty)"
+	}
+	s := fmt.Sprintf("%040x", id)
+	return s[:8] + ".. (" + a + ")"
 }
 
 // format an address for printing
@@ -643,10 +666,52 @@ func (n *Node) dump() {
 
 	// predecessor and successor links
 	fmt.Println("Neighborhood")
-	fmt.Println("pred:   ", addr(n.Predecessor))
-	fmt.Println("self:   ", addr(n.Address))
+	resp := pb.GetPredecessorResponse{}
+	if n.Predecessor != "" {
+
+		err := call(n.Predecessor, "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
+		if err != nil {
+			fmt.Println("pred:   (error contacting predecessor)")
+		} else {
+			if resp.Identifier != nil {
+				fmt.Println("pred:   ", addrwithid(n.Predecessor, new(big.Int).SetBytes(resp.Identifier)))
+			} else {
+				fmt.Println("pred:   ", addr(n.Predecessor))
+			}
+		}
+	} else {
+		fmt.Println("pred:   (empty)")
+	}
+
+	if n.Identifier != nil {
+		fmt.Println("self:   ", addrwithid(n.Address, n.Identifier))
+
+	} else {
+		fmt.Println("self:   ", addr(n.Address))
+
+	}
+
 	for i, succ := range n.Successors {
-		fmt.Printf("succ  %d: %s\n", i, addr(succ))
+		var resp2 pb.GetPredecessorResponse
+		if succ != n.Address {
+			if succ == "" {
+				continue
+			}
+			err := call(succ, "GetPredecessor", &pb.GetPredecessorRequest{}, &resp2)
+			if err != nil {
+				fmt.Printf("succ  %d: (error contacting successor)\n", i)
+				continue
+			}
+			if resp2.Identifier != nil {
+				fmt.Printf("succ  %d: %s\n", i, addrwithid(succ, new(big.Int).SetBytes(resp2.Identifier)))
+				continue
+			} else {
+				fmt.Printf("succ  %d: %s\n", i, addr(succ))
+			}
+		} else {
+			fmt.Printf("succ  %d: %s\n", i, addr(succ))
+		}
+
 	}
 	fmt.Println()
 	fmt.Println("Finger table")
@@ -655,10 +720,28 @@ func (n *Node) dump() {
 		for i < keySize && n.FingerTable[i] == n.FingerTable[i+1] {
 			i++
 		}
-		fmt.Printf(" [%3d]: %s\n", i, addr(n.FingerTable[i]))
+		if n.FingerTable[i] != "" {
+			err := call(n.FingerTable[i], "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
+			if err != nil {
+				i++
+				continue
+			}
+			if resp.Identifier != nil {
+				fmt.Printf(" [%3d]: %s\n", i, addrwithid(n.FingerTable[i], new(big.Int).SetBytes(resp.Identifier)))
+
+			} else {
+				fmt.Printf(" [%3d]: %s\n", i, addr(n.FingerTable[i]))
+
+			}
+		}
 		i++
 	}
 	fmt.Println()
+	if n.Identifier != nil {
+		fmt.Printf("identifier: %040x\n", n.Identifier)
+		fmt.Println()
+
+	}
 	fmt.Println("Data items")
 	for k, v := range n.Bucket {
 		s := fmt.Sprintf("%040x", hash(k))

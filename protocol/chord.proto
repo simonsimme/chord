@@ -58,8 +58,10 @@ message GetAllResponse {
 message GetPredecessorRequest {}
 message GetPredecessorResponse {
   string address = 1;
+  bytes identifier = 2;
   string pred = 3;
-  repeated string successors = 2;
+
+  repeated string successors = 4;
 }
 
 message NotifyRequest {
