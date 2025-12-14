@@ -735,6 +735,9 @@ func (n *Node) dump() {
 		for i < keySize && n.FingerTable[i] == n.FingerTable[i+1] {
 			i++
 		}
+		if i > keySize {
+			break
+		}
 		if n.FingerTable[i] != "" && n.FingerTable[i] != n.Address {
 			err := call(n.FingerTable[i], "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
 			if err != nil {
@@ -749,7 +752,11 @@ func (n *Node) dump() {
 				fmt.Printf(" [%3d]: %s\n", i, addr(n.FingerTable[i]))
 
 			}
+		} else if n.FingerTable[i] != "" && n.FingerTable[i] == n.Address {
+			fmt.Printf(" [%3d]: %s\n", i, addr(n.FingerTable[i]))
+
 		}
+
 		i++
 	}
 	fmt.Println()
