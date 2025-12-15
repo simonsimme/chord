@@ -2,22 +2,6 @@
 
 This directory contains the TLS certificates used to secure communication between Chord nodes.
 
-## Certificate Architecture
-
-We use a **Certificate Authority (CA)** based system with three types of files:
-
-### 1. Certificate Authority (CA)
-- **ca-key.pem**: Private key of the CA (keep secret!)
-- **ca-cert.pem**: Public certificate of the CA (distributed to all nodes)
-
-The CA is used to sign and validate all node certificates. All nodes trust certificates signed by this CA.
-
-### 2. Server Certificates
-- **server-key.pem**: Private key for the server (keep secret!)
-- **server-cert.pem**: Public certificate for the server (signed by CA)
-- **server-csr.pem**: Certificate signing request (intermediate file)
-
-
 ## Certificate Details
 
 ### Key Sizes
@@ -78,5 +62,13 @@ These provide:
 ```
 Error: x509: certificate has expired
 ```
-**Solution**: Regenerate certificates using `generate_certs.sh`
+### Generate the certificates
+start of by generate the ca-cert and ca-key they should be in the sub folder shared.
+`genAll.sh`
+
+these two pem should be shared amoung all nodes.
+
+then for each node run.
+`generate_certs.sh`
+this will give you: server-cert och server-key.
 
