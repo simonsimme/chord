@@ -16,15 +16,32 @@ Represented as a base-10 integer. Must be specified, with a value in the range o
 
 ## Compling 
 This will build and compile the project into a file called chord. 
+```bash
 go build
-
-
+```
+## Creating the cert 
+```bash
+bash ./certs/generate_certs.sh 
+```
 
 ## Starting the First Node
 We are currently running on localhost:
+```bash
 ./chord -a 127.0.0.1 -p 4170 --ts 3000 --tff 1000 --tcp 3000 -r 4
+```
 
 ## Joining a Node (We need to change the port number if running on the same machine)
+```bash
 ./chord -a 127.0.0.1 -p 4171 --ja 127.0.0.1 --jp 4170 --ts 3000 --tff 1000 --tcp 3000 -r 4
+```
+## How to Use the Chord Client
 
-
+Available commands:
+```
+help              - Show this help message
+ping <address>    - Ping another node (You can use :port for localhost)
+Lookup <filename> <password>              - Lookup the node responsible for a key
+StoreFile <local path/filename> <password> - Store a file in the DHT
+dump              - Display info about the current node
+quit              - Exit the program
+```
