@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -56,9 +57,15 @@ func resolveAddress(address string) string {
 // StartServer starts the gRPC server for this node
 func StartServer(address string, nprime string, ts int, tff int, tcp int, r int, id string) (*Node, error) {
 	address = resolveAddress(address)
-
+	pubip, errip := GetPublicIPv4()
+	if errip != nil {
+		log.Printf("Could not get public IP: %v", errip)
+	}
+	pubip = strings.TrimSpace(pubip) + ":" + strings.Split(address, ":")[1]
+	log.Printf("Public IP address: %s", pubip)
 	node := &Node{
 		Address:           address,
+		PublicAddr:        pubip,
 		FingerTable:       make([]string, keySize+1),
 		Predecessor:       "",
 		Successors:        nil,
@@ -101,7 +108,7 @@ func StartServer(address string, nprime string, ts int, tff int, tcp int, r int,
 	grpcServer := grpc.NewServer(grpc.Creds(creds))
 	pb.RegisterChordServer(grpcServer, node)
 
-	lis, err := net.Listen("tcp", node.Address)
+	lis, err := net.Listen("tcp", ":"+strings.Split(node.Address, ":")[1])
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %v", err)
 	}
@@ -401,4 +408,18 @@ func main() {
 
 	// Run the interactive shell
 	RunShell(node)
+}
+
+// standard get IPv4
+func GetPublicIPv4() (string, error) {
+	resp, err := http.Get("https://api.ipify.org?format=text")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	ip, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(ip), nil
 }

@@ -12,7 +12,7 @@ import (
 
 // PingNode sends a ping to another node
 func PingNode(ctx context.Context, address string) error {
-	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	creds, err := credentials.NewClientTLSFromFile("certs/shared/ca-cert.pem", "")
 	if err != nil {
 		return fmt.Errorf("failed to load TLS credentials: %v", err)
 	}
@@ -34,7 +34,7 @@ func PingNode(ctx context.Context, address string) error {
 
 // PutKeyValue sets a key-value pair on a node
 func PutKeyValue(ctx context.Context, key string, value []byte, address string) error {
-	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	creds, err := credentials.NewClientTLSFromFile("certs/shared/ca-cert.pem", "")
 	if err != nil {
 		return fmt.Errorf("failed to load TLS credentials: %v", err)
 	}
@@ -59,7 +59,7 @@ func PutKeyValue(ctx context.Context, key string, value []byte, address string) 
 
 // GetValue retrieves a value for a key from a node
 func GetValue(ctx context.Context, key, address string) ([]byte, error) {
-	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	creds, err := credentials.NewClientTLSFromFile("certs/shared/ca-cert.pem", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load TLS credentials: %v", err)
 	}
@@ -80,4 +80,3 @@ func GetValue(ctx context.Context, key, address string) ([]byte, error) {
 
 	return resp.Value, nil
 }
-

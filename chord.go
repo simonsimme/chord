@@ -38,6 +38,7 @@ type Node struct {
 	mu sync.RWMutex
 
 	Address     string
+	PublicAddr  string
 	Predecessor string
 	Successors  []string
 
@@ -239,7 +240,7 @@ func (n *Node) checkPredecessor() {
 func (n *Node) create() {
 	n.mu.Lock()
 	n.Predecessor = ""
-	n.Successors = []string{n.Address}
+	n.Successors = []string{n.PublicAddr}
 	n.mu.Unlock()
 	//log.Printf("create: created new Chord network at %s", n.Address)
 }
@@ -254,7 +255,7 @@ func (n *Node) join(nprime string) {
 			return
 		}
 	} else {
-		err := call(nprime, "FindSuccessor", &pb.FindSuccessorRequest{Id: hash(n.Address).Bytes()}, &resp)
+		err := call(nprime, "FindSuccessor", &pb.FindSuccessorRequest{Id: hash(n.PublicAddr).Bytes()}, &resp)
 		if err != nil {
 			log.Printf("join: FindSuccessor call failed: %v", err)
 			return
@@ -263,8 +264,9 @@ func (n *Node) join(nprime string) {
 
 	n.mu.Lock()
 	n.Successors = []string{resp.Adress}
+	log.Printf("join: setting successor to %s", resp.Adress)
 	n.mu.Unlock()
-	errr := call(resp.Adress, "Notify", &pb.NotifyRequest{Address: n.Address}, &pb.NotifyResponse{})
+	errr := call(resp.Adress, "Notify", &pb.NotifyRequest{Address: n.PublicAddr}, &pb.NotifyResponse{})
 	if errr != nil {
 		log.Printf("join: Notify call failed: %v", errr)
 		return
@@ -277,13 +279,13 @@ func (n *Node) FindSuccessor(ctx context.Context, req *pb.FindSuccessorRequest) 
 	n.mu.RLock()
 	if len(n.Successors) == 0 || n.Successors[0] == "" {
 		n.mu.RUnlock()
-		return &pb.FindSuccessorRespons{Adress: n.Address}, nil
+		return &pb.FindSuccessorRespons{Adress: n.PublicAddr}, nil
 	}
 	var myHash *big.Int
 	if n.Identifier != nil {
 		myHash = n.Identifier
 	} else {
-		myHash = hash(n.Address)
+		myHash = hash(n.PublicAddr)
 	}
 	succHash := hash(n.Successors[0])
 	succ := n.Successors[0]
@@ -309,16 +311,20 @@ func (n *Node) FindSuccessor(ctx context.Context, req *pb.FindSuccessorRequest) 
 func (n *Node) stabilize() {
 	////log.Printf("stabilize: checking successor %s", n.Successors[0])
 	n.mu.RLock()
+	if len(n.Successors) == 0 {
+		n.mu.RUnlock()
+		return
+	}
 	succ := n.Successors[0]
 	pred := n.Predecessor
 	n.mu.RUnlock()
 	//n.dump()
 
-	if n.Address == succ {
+	if n.PublicAddr == succ {
 		if pred != "" {
 
 			var resp pb.NotifyResponse
-			err := call(pred, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
+			err := call(pred, "Notify", &pb.NotifyRequest{Address: n.PublicAddr}, &resp)
 			if err != nil {
 				log.Printf("stabilize: predecessor %s is dead, clearing it", n.Predecessor)
 				n.mu.Lock()
@@ -341,7 +347,7 @@ func (n *Node) stabilize() {
 		// ask successor for its predecessor
 		var resp pb.GetPredecessorResponse
 		for i := 0; i < len(n.Successors); i++ {
-			if succ == n.Address {
+			if succ == n.PublicAddr {
 				return
 			}
 			err := call(succ, "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
@@ -374,23 +380,23 @@ func (n *Node) stabilize() {
 		//log.Printf("stabilize: got predecessor %s from %s", resp.Address, succ)
 		if resp.Address == "" {
 			//log.Printf("stabilize: got empty predecessor from ", succ)
-			if succ == n.Address || resp.Pred == n.Address {
+			if succ == n.PublicAddr || resp.Pred == n.PublicAddr {
 				break
 			}
 			var resp pb.NotifyResponse
-			err := call(succ, "Notify", &pb.NotifyRequest{Address: n.Address}, &resp)
+			err := call(succ, "Notify", &pb.NotifyRequest{Address: n.PublicAddr}, &resp)
 			if err != nil {
 				//log.Printf("stabilize: notify call failed: %v", err)
 			}
 
 			break
 		}
-		if resp.Address == n.Address {
+		if resp.Address == n.PublicAddr {
 			n.mu.Lock()
 			//n.Successors[0] = succ
 			n.Successors = append([]string{succ}, resp.Successors...)
 			for i, addr := range n.Successors {
-				if addr == n.Address {
+				if addr == n.PublicAddr {
 					n.Successors = n.Successors[:i+1]
 					break
 				}
@@ -426,7 +432,7 @@ func (n *Node) Notify(ctx context.Context, req *pb.NotifyRequest) (*pb.NotifyRes
 func (n *Node) Lookup(filename string) (*big.Int, string, []byte, error) { //node’s identifier, IP address, port, and the contents of the file.
 	key := hash(filename)
 	n.mu.RLock()
-	closestNode := n.Address
+	closestNode := n.PublicAddr
 	for i := keySize; i >= 1; i-- {
 		if n.FingerTable[i] != "" {
 			fingerHash := hash(n.FingerTable[i])
@@ -434,7 +440,7 @@ func (n *Node) Lookup(filename string) (*big.Int, string, []byte, error) { //nod
 			if n.Identifier != nil {
 				myHash = n.Identifier
 			} else {
-				myHash = hash(n.Address)
+				myHash = hash(n.PublicAddr)
 			}
 
 			// If this finger is between me and the key, use it
@@ -463,7 +469,7 @@ func (n *Node) Lookup(filename string) (*big.Int, string, []byte, error) { //nod
 func (n *Node) LookupFile(filename string, password string) (*big.Int, string, []byte, error) { //node’s identifier, IP address, port, and the contents of the file.
 	key := hash(filename)
 	n.mu.RLock()
-	closestNode := n.Address
+	closestNode := n.PublicAddr
 	for i := keySize; i >= 1; i-- {
 		if n.FingerTable[i] != "" {
 			fingerHash := hash(n.FingerTable[i])
@@ -471,7 +477,7 @@ func (n *Node) LookupFile(filename string, password string) (*big.Int, string, [
 			if n.Identifier != nil {
 				myHash = n.Identifier
 			} else {
-				myHash = hash(n.Address)
+				myHash = hash(n.PublicAddr)
 			}
 
 			// If this finger is between me and the key, use it
@@ -505,7 +511,7 @@ func (n *Node) LookupFile(filename string, password string) (*big.Int, string, [
 }
 
 func call(address string, method string, request interface{}, reply interface{}) error {
-	creds, err := credentials.NewClientTLSFromFile("certs/ca-cert.pem", "")
+	creds, err := credentials.NewClientTLSFromFile("certs/shared/ca-cert.pem", "")
 	if err != nil {
 		return fmt.Errorf("failed to load TLS credentials: %v", err)
 	}
@@ -634,7 +640,7 @@ func (n *Node) fixFingers(nextFinger int) int {
 		target = new(big.Int).Mod(target, hashMod)
 	} else {
 		// Fall back to hashing the address
-		target = jump(n.Address, nextFinger)
+		target = jump(n.PublicAddr, nextFinger)
 	}
 	n.mu.RUnlock()
 
@@ -699,16 +705,16 @@ func (n *Node) dump() {
 	}
 
 	if n.Identifier != nil {
-		fmt.Println("self:   ", addrwithid(n.Address, n.Identifier))
+		fmt.Println("self:   ", addrwithid(n.PublicAddr, n.Identifier))
 
 	} else {
-		fmt.Println("self:   ", addr(n.Address))
+		fmt.Println("self:   ", addr(n.PublicAddr))
 
 	}
 
 	for i, succ := range n.Successors {
 		var resp2 pb.GetPredecessorResponse
-		if succ != n.Address {
+		if succ != n.PublicAddr {
 			if succ == "" {
 				continue
 			}
@@ -738,7 +744,7 @@ func (n *Node) dump() {
 		if i > keySize {
 			break
 		}
-		if n.FingerTable[i] != "" && n.FingerTable[i] != n.Address {
+		if n.FingerTable[i] != "" && n.FingerTable[i] != n.PublicAddr {
 			err := call(n.FingerTable[i], "GetPredecessor", &pb.GetPredecessorRequest{}, &resp)
 			if err != nil {
 				fmt.Printf(" [%3d]: %s\n", i, addr(n.FingerTable[i]))
@@ -752,7 +758,7 @@ func (n *Node) dump() {
 				fmt.Printf(" [%3d]: %s\n", i, addr(n.FingerTable[i]))
 
 			}
-		} else if n.FingerTable[i] != "" && n.FingerTable[i] == n.Address {
+		} else if n.FingerTable[i] != "" && n.FingerTable[i] == n.PublicAddr {
 			fmt.Printf(" [%3d]: %s\n", i, addr(n.FingerTable[i]))
 
 		}
