@@ -172,7 +172,7 @@ func RunShell(node *Node) {
 			continue
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
 		switch parts[0] {
@@ -220,19 +220,6 @@ func RunShell(node *Node) {
 				fmt.Printf("StoreFile failed: %v\n", err)
 			} else {
 				fmt.Printf("File '%s' stored successfully in the DHT\n", parts[1])
-			}
-
-		case "ping":
-			if len(parts) < 2 {
-				fmt.Println("Usage: ping <address>")
-				continue
-			}
-
-			err := PingNode(ctx, parts[1])
-			if err != nil {
-				fmt.Printf("Ping failed: %v\n", err)
-			} else {
-				fmt.Println("Ping successful")
 			}
 
 		case "dump":
