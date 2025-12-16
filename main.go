@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -171,9 +170,6 @@ func RunShell(node *Node) {
 		if len(parts) == 0 {
 			continue
 		}
-
-		_, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
 
 		switch parts[0] {
 		case "help":
